@@ -100,16 +100,26 @@ function isIndexFile(basename: string): boolean {
   return lower === 'index' || lower === 'readme'
 }
 
+// Common documentation root directories to strip from routes
+const CONTENT_ROOT_DIRS = ['docs', 'documentation', 'content', 'pages']
+
 export function fileToRoute(file: string): string {
   // Strip leading dot from directory names (e.g., .c3 -> c3)
-  const normalizedFile = file.replace(/^\./, '').replace(/\/\./g, '/')
+  let normalizedFile = file.replace(/^\./, '').replace(/\/\./g, '/')
+
+  // Strip common content root directory prefix (e.g., docs/components -> components)
+  const firstDir = normalizedFile.split('/')[0]?.toLowerCase()
+  if (CONTENT_ROOT_DIRS.includes(firstDir)) {
+    normalizedFile = normalizedFile.slice(firstDir.length + 1) || normalizedFile
+  }
+
   const withoutExt = normalizedFile.replace(/\.mdx?$/, '')
   const basename = path.basename(withoutExt).toLowerCase()
 
   // Root index or readme
   if (basename === 'index' || basename === 'readme') {
     const dir = path.dirname(withoutExt)
-    if (dir === '.') {
+    if (dir === '.' || dir === '') {
       return '/'
     }
     return '/' + dir

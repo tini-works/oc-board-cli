@@ -120,8 +120,20 @@
   position: fixed;
   inset: 0;
   z-index: 9998;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fade-in-overlay 0.2s ease;
+}
+
+@keyframes fade-in-overlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up-sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .toc-overlay-content {
@@ -129,15 +141,31 @@
   bottom: 0;
   left: 0;
   right: 0;
-  max-height: 80vh;
+  max-height: 70vh;
   background: var(--fd-background);
-  border-radius: 1rem 1rem 0 0;
+  border-radius: 1.25rem 1.25rem 0 0;
   overflow: hidden;
+  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.12);
+  animation: slide-up-sheet 0.25s ease;
+  /* Bottom safe area for toolbar overlap prevention */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 72px);
+}
+
+/* Bottom sheet drag indicator */
+.toc-overlay-content::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  background: var(--fd-border);
+  border-radius: 2px;
+  margin: 8px auto;
 }
 
 .toc-overlay-content .toc-nav {
-  max-height: calc(80vh - 60px);
-  padding: 1rem;
+  max-height: calc(70vh - 120px);
+  padding: 0.5rem 1rem 1rem;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 768px) {

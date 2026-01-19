@@ -99,15 +99,15 @@ function PreviewsCatalog() {
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>
           No Previews Found
         </h1>
-        <p style={{ color: '#666', marginBottom: '24px' }}>
+        <p style={{ color: 'var(--fd-muted-foreground)', marginBottom: '24px' }}>
           Create your first preview with:
         </p>
         <code style={{
           display: 'inline-block',
           padding: '12px 20px',
-          backgroundColor: '#f4f4f5',
+          backgroundColor: 'var(--fd-muted)',
           borderRadius: '8px',
-          fontFamily: 'monospace',
+          fontFamily: 'var(--fd-font-mono)',
         }}>
           prev create my-demo
         </code>
@@ -116,37 +116,33 @@ function PreviewsCatalog() {
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <div style={{ marginBottom: '32px' }}>
+    <div className="previews-catalog">
+      <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>
           Previews
         </h1>
-        <p style={{ color: '#666' }}>
+        <p style={{ color: 'var(--fd-muted-foreground)', margin: 0 }}>
           {previews.length} component preview{previews.length !== 1 ? 's' : ''} available.
           Click any preview to open it.
         </p>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-        gap: '20px',
-      }}>
+      <div className="previews-grid">
         {previews.map((preview: { name: string; route: string }) => (
           <PreviewCard key={preview.name} name={preview.name} />
         ))}
       </div>
 
       <div style={{
-        marginTop: '40px',
-        padding: '16px',
+        marginTop: '32px',
+        padding: '14px 16px',
         backgroundColor: 'var(--fd-muted)',
         border: '1px solid var(--fd-border)',
-        borderRadius: '8px',
+        borderRadius: '10px',
       }}>
         <p style={{ margin: 0, fontSize: '14px', color: 'var(--fd-muted-foreground)' }}>
-          <strong>Tip:</strong> Embed any preview in your MDX docs with{' '}
-          <code style={{ backgroundColor: 'var(--fd-accent)', padding: '2px 6px', borderRadius: '4px' }}>
+          <strong style={{ color: 'var(--fd-foreground)' }}>Tip:</strong> Embed any preview in your MDX docs with{' '}
+          <code style={{ backgroundColor: 'var(--fd-accent)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--fd-font-mono)' }}>
             {'<Preview src="name" />'}
           </code>
         </p>
@@ -161,11 +157,23 @@ import type { PreviewConfig, PreviewMessage } from '../preview-runtime/types'
 function PreviewCard({ name }: { name: string }) {
   const iframeRef = React.useRef<HTMLIFrameElement>(null)
   const [isLoaded, setIsLoaded] = React.useState(false)
+  const [loadError, setLoadError] = React.useState(false)
 
   // In production, use pre-built static files; in dev, use WASM runtime
   const isDev = import.meta.env?.DEV ?? false
   const baseUrl = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '')
   const previewUrl = isDev ? `/_preview-runtime?src=${name}` : `${baseUrl}/_preview/${name}/`
+
+  // Timeout for loading - show placeholder if too slow
+  React.useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!isLoaded) {
+        setLoadError(true)
+      }
+    }, 5000) // 5 second timeout
+
+    return () => clearTimeout(timeout)
+  }, [isLoaded])
 
   // Set up WASM preview communication for thumbnail (dev mode only)
   React.useEffect(() => {
@@ -174,6 +182,7 @@ function PreviewCard({ name }: { name: string }) {
       const iframe = iframeRef.current
       if (iframe) {
         iframe.onload = () => setIsLoaded(true)
+        iframe.onerror = () => setLoadError(true)
       }
       return
     }
@@ -195,12 +204,16 @@ function PreviewCard({ name }: { name: string }) {
             iframe.contentWindow?.postMessage({ type: 'init', config } as PreviewMessage, '*')
           })
           .catch(() => {
-            // Silently fail for thumbnails
+            setLoadError(true)
           })
       }
 
       if (msg.type === 'built') {
         setIsLoaded(true)
+      }
+
+      if (msg.type === 'error') {
+        setLoadError(true)
       }
     }
 
@@ -212,87 +225,38 @@ function PreviewCard({ name }: { name: string }) {
   }, [name, isDev])
 
   return (
-    <Link
-      to={`/previews/${name}`}
-      style={{
-        display: 'block',
-        border: '1px solid var(--fd-border)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        backgroundColor: 'var(--fd-background)',
-        textDecoration: 'none',
-        color: 'inherit',
-        transition: 'box-shadow 0.2s, transform 0.2s',
-      }}
-      onMouseOver={(e) => {
-        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)'
-        e.currentTarget.style.transform = 'translateY(-2px)'
-      }}
-      onMouseOut={(e) => {
-        e.currentTarget.style.boxShadow = ''
-        e.currentTarget.style.transform = ''
-      }}
-    >
+    <Link to={`/previews/${name}`} className="preview-card">
       {/* Thumbnail preview */}
-      <div style={{
-        height: '180px',
-        overflow: 'hidden',
-        position: 'relative',
-        backgroundColor: 'var(--fd-muted)',
-        pointerEvents: 'none',
-      }}>
-        {/* Loading spinner */}
-        {!isLoaded && (
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'var(--fd-muted)',
-            zIndex: 1,
-          }}>
-            <div style={{
-              width: '24px',
-              height: '24px',
-              border: '2px solid var(--fd-border)',
-              borderTopColor: 'var(--fd-primary)',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-            }} />
+      <div className="preview-card-thumbnail">
+        {/* Loading state */}
+        {!isLoaded && !loadError && (
+          <div className="preview-card-loading">
+            <div className="preview-card-spinner" />
+          </div>
+        )}
+        {/* Error/timeout placeholder */}
+        {loadError && (
+          <div className="preview-card-placeholder">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M9 9l6 6m0-6l-6 6" />
+            </svg>
+            <span>Preview</span>
           </div>
         )}
         <iframe
           ref={iframeRef}
           src={previewUrl}
-          style={{
-            border: 'none',
-            transform: 'scale(0.5)',
-            transformOrigin: 'top left',
-            width: '200%',
-            height: '200%',
-            opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.3s',
-          }}
+          className="preview-card-iframe"
+          style={{ opacity: isLoaded && !loadError ? 1 : 0 }}
           title={name}
+          loading="lazy"
         />
       </div>
       {/* Card footer */}
-      <div style={{
-        padding: '12px 16px',
-        borderTop: '1px solid var(--fd-border)',
-        backgroundColor: 'var(--fd-card)',
-      }}>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>
-          {name}
-        </h3>
-        <code style={{
-          fontSize: '11px',
-          color: 'var(--fd-muted-foreground)',
-          fontFamily: 'monospace',
-        }}>
-          previews/{name}/
-        </code>
+      <div className="preview-card-footer">
+        <h3 className="preview-card-title">{name}</h3>
+        <code className="preview-card-path">previews/{name}/</code>
       </div>
     </Link>
   )

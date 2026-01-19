@@ -19,20 +19,30 @@ interface ToolbarProps {
 export function Toolbar({ tree, onThemeToggle, onWidthToggle, isDark, isFullWidth, onTocToggle, tocOpen }: ToolbarProps) {
   const [position, setPosition] = useState({ x: 20, y: typeof window !== 'undefined' ? window.innerHeight - 80 : 600 })
   const [dragging, setDragging] = useState(false)
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth <= 768 : false)
   const dragStart = useRef({ x: 0, y: 0 })
   const toolbarRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const isOnPreviews = location.pathname.startsWith('/previews')
   const { devToolsContent } = useDevTools()
 
+  // Track mobile state
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Disable dragging on mobile
+    if (isMobile) return
     if ((e.target as HTMLElement).closest('button, a')) return
     setDragging(true)
     dragStart.current = { x: e.clientX - position.x, y: e.clientY - position.y }
   }
 
   useEffect(() => {
-    if (!dragging) return
+    if (!dragging || isMobile) return
 
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({
@@ -49,13 +59,13 @@ export function Toolbar({ tree, onThemeToggle, onWidthToggle, isDark, isFullWidt
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [dragging])
+  }, [dragging, isMobile])
 
   return (
     <div
       ref={toolbarRef}
       className="prev-toolbar"
-      style={{ left: position.x, top: position.y }}
+      style={isMobile ? undefined : { left: position.x, top: position.y }}
       onMouseDown={handleMouseDown}
     >
       <button
