@@ -370,7 +370,11 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
     },
 
     optimizeDeps: {
-      entries: [],  // Don't scan user's project for deps
+      // Don't scan user's project for deps - prev-cli provides everything
+      entries: [],
+      // Disable automatic dependency discovery to prevent scanning user's node_modules
+      noDiscovery: true,
+      // Pre-bundle all dependencies we need (since noDiscovery is true)
       include: [
         'react',
         'react-dom',
@@ -378,6 +382,7 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
         '@tanstack/react-router',
         'react/jsx-runtime',
         'react/jsx-dev-runtime',
+        '@mdx-js/react',
         // Pre-bundle mermaid and its deps to fix ESM issues
         'mermaid',
         'dayjs',
