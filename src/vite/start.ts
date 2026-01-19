@@ -75,14 +75,14 @@ function clearCache(rootDir: string) {
   }
 }
 
-function setupKeyboardShortcuts(rootDir: string, url: string, quit: () => void) {
-  if (!process.stdin.isTTY) return
+function setupKeyboardShortcuts(rootDir: string, url: string, quit: () => void): () => void {
+  if (!process.stdin.isTTY) return () => {}
 
   process.stdin.setRawMode(true)
   process.stdin.resume()
   process.stdin.setEncoding('utf8')
 
-  process.stdin.on('data', (key: string) => {
+  const handler = (key: string) => {
     switch (key.toLowerCase()) {
       case 'o':
         openBrowser(url)
@@ -98,7 +98,18 @@ function setupKeyboardShortcuts(rootDir: string, url: string, quit: () => void) 
         quit()
         break
     }
-  })
+  }
+
+  process.stdin.on('data', handler)
+
+  // Return cleanup function
+  return () => {
+    process.stdin.off('data', handler)
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(false)
+    }
+    process.stdin.pause()
+  }
 }
 
 export async function startDev(rootDir: string, options: DevOptions = {}) {
@@ -121,11 +132,47 @@ export async function startDev(rootDir: string, options: DevOptions = {}) {
   server.printUrls()
   printReady()
 
-  // Setup keyboard shortcuts
-  setupKeyboardShortcuts(rootDir, url, async () => {
-    console.log('\n  Shutting down...')
-    await server.close()
+  // Track if we're already shutting down to prevent double-cleanup
+  let isShuttingDown = false
+  let cleanupStdin: () => void = () => {}
+
+  const shutdown = async (signal?: string) => {
+    if (isShuttingDown) return
+    isShuttingDown = true
+
+    if (signal) {
+      console.log(`\n  Received ${signal}, shutting down...`)
+    } else {
+      console.log('\n  Shutting down...')
+    }
+
+    // Cleanup stdin immediately to restore terminal
+    cleanupStdin()
+
+    // Close server with timeout to prevent hanging
+    const closePromise = server.close()
+    const timeoutPromise = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        console.log('  Force closing (timeout)...')
+        resolve()
+      }, 3000) // 3 second timeout
+    })
+
+    await Promise.race([closePromise, timeoutPromise])
     process.exit(0)
+  }
+
+  // Setup keyboard shortcuts with cleanup
+  cleanupStdin = setupKeyboardShortcuts(rootDir, url, () => shutdown())
+
+  // Handle OS signals for graceful shutdown
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+
+  // Handle uncaught errors
+  process.on('uncaughtException', (err) => {
+    console.error('\n  Uncaught exception:', err.message)
+    shutdown('uncaughtException')
   })
 
   return server

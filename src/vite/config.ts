@@ -165,8 +165,15 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
         remarkPlugins: [remarkGfm],
         rehypePlugins: [rehypeHighlight],
         providerImportSource: '@mdx-js/react',
-        // Only process MDX files in user's project, not node_modules
-        exclude: /node_modules/,
+        // Only process MDX files in user's project root, not node_modules or other packages
+        include: [
+          path.join(rootDir, '**/*.md'),
+          path.join(rootDir, '**/*.mdx'),
+        ],
+        exclude: [
+          '**/node_modules/**',
+          '**/.git/**',
+        ],
       }),
       react(),
       createConfigPlugin(config),
@@ -418,6 +425,12 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
           main: path.join(srcRoot, 'theme/index.html'),
         }
       }
-    }
+    },
+
+    // Treat .md files in node_modules as static assets (don't process them)
+    assetsInclude: [
+      '**/node_modules/**/*.md',
+      '**/node_modules/**/*.mdx',
+    ],
   }
 }
