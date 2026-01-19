@@ -159,6 +159,9 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
     customLogger: createFriendlyLogger(),
     // Use 'silent' for production builds to hide file listing
     logLevel: mode === 'production' ? 'silent' : 'info',
+    // Don't load .env files from user's project - prev-cli should be isolated
+    envDir: cliRoot,  // Only look for .env in CLI's own directory (which shouldn't have one)
+    envPrefix: 'PREV_',  // Only expose PREV_* env vars to client code
 
     plugins: [
       mdx({
