@@ -383,10 +383,24 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
     },
 
     optimizeDeps: {
-      // Disable optimizeDeps entirely to eliminate first-run bundling delay
-      // Deps will be served unbundled (slightly slower page loads, but instant startup)
+      // Disable auto-discovery but pre-bundle packages that have CJS/ESM issues
+      // These packages don't work correctly when served unbundled to browsers
       noDiscovery: true,
-      include: [],  // Empty = no pre-bundling
+      include: [
+        // React core - has CJS exports that need conversion
+        'react',
+        'react-dom',
+        'react-dom/client',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        // TanStack Router and its dependencies
+        '@tanstack/react-router',
+        // CJS-only: used by @tanstack/react-store, has no ESM exports
+        'use-sync-external-store',
+        'use-sync-external-store/shim/with-selector.js',
+        // MDX provider
+        '@mdx-js/react',
+      ],
       exclude: [
         // Virtual modules provided by our plugins - not real packages
         'virtual:prev-config',
