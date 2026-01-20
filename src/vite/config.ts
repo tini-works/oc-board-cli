@@ -13,9 +13,13 @@ import { pagesPlugin } from './plugins/pages-plugin'
 import { entryPlugin } from './plugins/entry-plugin'
 import { previewsPlugin } from './plugins/previews-plugin'
 import { createConfigPlugin } from './plugins/config-plugin'
+import { debugPlugin } from './plugins/debug-plugin'
 import { buildPreviewConfig } from './previews'
 import { loadConfig, updateOrder } from '../config'
+import { createDebugCollector, getDebugCollector } from '../utils/debug'
 // fumadocsPlugin removed - using custom lightweight layout
+
+export { getDebugCollector }
 
 // Create a friendly logger that filters out technical noise
 function createFriendlyLogger(): Logger {
@@ -141,12 +145,19 @@ export interface ConfigOptions {
   port?: number
   include?: string[]
   base?: string  // Base path for deployment (e.g., '/repo-name/' for GitHub Pages)
+  debug?: boolean  // Enable debug tracing
 }
 
 export async function createViteConfig(options: ConfigOptions): Promise<InlineConfig> {
-  const { rootDir, mode, port, include, base } = options
+  const { rootDir, mode, port, include, base, debug } = options
   const cacheDir = await ensureCacheDir(rootDir)
   const config = loadConfig(rootDir)
+
+  // Create debug collector if debug mode is enabled
+  const debugCollector = debug ? createDebugCollector(rootDir) : null
+  if (debugCollector) {
+    debugCollector.startPhase('configLoad')
+  }
 
   // Note: Previews are now built separately by the previews plugin
   // using esbuild for standalone HTML output
@@ -164,6 +175,8 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
     envPrefix: 'PREV_',  // Only expose PREV_* env vars to client code
 
     plugins: [
+      // Debug plugin must be first to capture all file operations
+      ...(debugCollector ? [debugPlugin(debugCollector)] : []),
       mdx({
         remarkPlugins: [remarkGfm],
         rehypePlugins: [rehypeHighlight],
@@ -370,24 +383,10 @@ export async function createViteConfig(options: ConfigOptions): Promise<InlineCo
     },
 
     optimizeDeps: {
-      // Don't scan user's project for deps - prev-cli provides everything
-      entries: [],
-      // Disable automatic dependency discovery to prevent scanning user's node_modules
+      // Disable optimizeDeps entirely to eliminate first-run bundling delay
+      // Deps will be served unbundled (slightly slower page loads, but instant startup)
       noDiscovery: true,
-      // Pre-bundle all dependencies we need (since noDiscovery is true)
-      include: [
-        'react',
-        'react-dom',
-        'react-dom/client',
-        '@tanstack/react-router',
-        'react/jsx-runtime',
-        'react/jsx-dev-runtime',
-        '@mdx-js/react',
-        // Pre-bundle mermaid and its deps to fix ESM issues
-        'mermaid',
-        'dayjs',
-        '@terrastruct/d2',
-      ],
+      include: [],  // Empty = no pre-bundling
       exclude: [
         // Virtual modules provided by our plugins - not real packages
         'virtual:prev-config',

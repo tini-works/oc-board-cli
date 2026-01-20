@@ -31,6 +31,7 @@ const { values, positionals } = parseArgs({
     days: { type: 'string', short: 'd' },
     cwd: { type: 'string', short: 'c' },
     base: { type: 'string', short: 'b' },
+    debug: { type: 'boolean' },
     help: { type: 'boolean', short: 'h' },
     version: { type: 'boolean', short: 'v' }
   },
@@ -68,6 +69,7 @@ Options:
   -p, --port <port>      Specify port (dev/preview)
   -b, --base <path>      Base path for deployment (e.g., /repo-name/ for GitHub Pages)
   -d, --days <days>      Cache age threshold for clean (default: 30)
+  --debug                Write debug trace to .prev-debug/ for performance analysis
   -h, --help             Show this help message
   -v, --version          Show version number
 
@@ -450,15 +452,15 @@ async function main() {
   try {
     switch (command) {
       case 'dev':
-        await startDev(rootDir, { port, include })
+        await startDev(rootDir, { port, include, debug: values.debug })
         break
 
       case 'build':
-        await buildSite(rootDir, { include, base: values.base })
+        await buildSite(rootDir, { include, base: values.base, debug: values.debug })
         break
 
       case 'preview':
-        await previewSite(rootDir, { port, include })
+        await previewSite(rootDir, { port, include, debug: values.debug })
         break
 
       case 'clean':

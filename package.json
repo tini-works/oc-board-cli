@@ -1,6 +1,6 @@
 {
   "name": "prev-cli",
-  "version": "0.24.4",
+  "version": "0.24.5",
   "description": "Transform MDX directories into beautiful documentation websites",
   "type": "module",
   "license": "MIT",
@@ -36,6 +36,7 @@
   "scripts": {
     "build": "bun build src/cli.ts --outdir dist --target node --packages external && tsc --emitDeclarationOnly",
     "build:docs": "bun run build && bun ./dist/cli.js build",
+    "prepublishOnly": "bun run build",
     "dev": "tsc --watch",
     "test": "bun test src",
     "test:integration": "bun run build && bun test test/integration.test.ts",

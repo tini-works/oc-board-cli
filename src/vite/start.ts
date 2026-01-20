@@ -1,6 +1,6 @@
 // src/vite/start.ts
 import { createServer, build, preview } from 'vite'
-import { createViteConfig } from './config'
+import { createViteConfig, getDebugCollector } from './config'
 import { getRandomPort } from '../utils/port'
 import { exec } from 'child_process'
 import { existsSync, rmSync, copyFileSync } from 'fs'
@@ -9,11 +9,13 @@ import path from 'path'
 export interface DevOptions {
   port?: number
   include?: string[]
+  debug?: boolean
 }
 
 export interface BuildOptions {
   include?: string[]
   base?: string
+  debug?: boolean
 }
 
 function printWelcome(type: 'dev' | 'preview') {
@@ -119,11 +121,20 @@ export async function startDev(rootDir: string, options: DevOptions = {}) {
     rootDir,
     mode: 'development',
     port,
-    include: options.include
+    include: options.include,
+    debug: options.debug
   })
 
   const server = await createServer(config)
   await server.listen()
+
+  // Write debug report if enabled
+  const debugCollector = getDebugCollector()
+  if (debugCollector) {
+    debugCollector.startPhase('serverReady')
+    const reportPath = debugCollector.writeReport()
+    console.log(`  📊 Debug trace written to: ${reportPath}`)
+  }
 
   const actualPort = server.config.server.port || port
   const url = `http://localhost:${actualPort}/`
@@ -188,10 +199,19 @@ export async function buildSite(rootDir: string, options: BuildOptions = {}) {
     rootDir,
     mode: 'production',
     include: options.include,
-    base: options.base
+    base: options.base,
+    debug: options.debug
   })
 
   await build(config)
+
+  // Write debug report if enabled
+  const debugCollector = getDebugCollector()
+  if (debugCollector) {
+    debugCollector.startPhase('buildComplete')
+    const reportPath = debugCollector.writeReport()
+    console.log(`  📊 Debug trace written to: ${reportPath}`)
+  }
 
   // Create 404.html for SPA fallback (GitHub Pages, etc.)
   const distDir = path.join(rootDir, 'dist')
@@ -214,10 +234,19 @@ export async function previewSite(rootDir: string, options: DevOptions = {}) {
     rootDir,
     mode: 'production',
     port,
-    include: options.include
+    include: options.include,
+    debug: options.debug
   })
 
   const server = await preview(config)
+
+  // Write debug report if enabled
+  const debugCollector = getDebugCollector()
+  if (debugCollector) {
+    debugCollector.startPhase('previewReady')
+    const reportPath = debugCollector.writeReport()
+    console.log(`  📊 Debug trace written to: ${reportPath}`)
+  }
 
   printWelcome('preview')
   server.printUrls()
