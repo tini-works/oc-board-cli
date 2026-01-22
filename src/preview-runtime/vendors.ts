@@ -19,6 +19,15 @@ export async function buildVendorBundle(): Promise<VendorBundleResult> {
       import { createRoot } from 'react-dom/client'
       export { jsx, jsxs, Fragment } from 'react/jsx-runtime'
       export { React, ReactDOM, createRoot }
+      // Re-export React hooks as named exports (preview code imports them directly)
+      export {
+        useState, useEffect, useCallback, useMemo, useRef,
+        useContext, useReducer, useLayoutEffect, useInsertionEffect,
+        useTransition, useDeferredValue, useId, useSyncExternalStore,
+        useImperativeHandle, useDebugValue, memo, forwardRef,
+        createContext, createRef, lazy, Suspense, startTransition,
+        Children, cloneElement, isValidElement, createElement
+      } from 'react'
       export default React
     `
 
