@@ -1,0 +1,58 @@
+title: User Onboarding
+description: Complete user onboarding flow from signup to dashboard
+tags: [flow, onboarding, auth]
+status: stable
+category: flows
+order: 1
+
+steps:
+  - id: welcome
+    title: Welcome Screen
+    description: Initial landing with value proposition
+    screen: login
+
+  - id: signup
+    title: Create Account
+    description: User enters email and password
+    screen: login
+
+  - id: verify
+    title: Email Verification
+    description: User verifies their email address
+    screen: login
+
+  - id: profile
+    title: Complete Profile
+    description: User adds profile information
+    screen: dashboard
+
+  - id: tour
+    title: Product Tour
+    description: Interactive walkthrough of key features
+    screen: dashboard
+
+  - id: complete
+    title: Ready to Go
+    description: Onboarding complete, user lands on dashboard
+    screen: dashboard
+
+transitions:
+  - from: welcome
+    to: signup
+    trigger: click_get_started
+
+  - from: signup
+    to: verify
+    trigger: submit_form
+
+  - from: verify
+    to: profile
+    trigger: email_confirmed
+
+  - from: profile
+    to: tour
+    trigger: submit_profile
+
+  - from: tour
+    to: complete
+    trigger: finish_tour

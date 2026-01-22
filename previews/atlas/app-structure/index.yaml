@@ -1,0 +1,77 @@
+title: Application Structure
+description: High-level architecture and navigation map
+tags: [atlas, architecture, navigation]
+status: stable
+category: atlas
+order: 1
+
+nodes:
+  - id: root
+    title: App Root
+    type: container
+    children:
+      - auth
+      - main
+
+  - id: auth
+    title: Authentication
+    type: module
+    description: User authentication and authorization
+    children:
+      - login
+      - signup
+      - forgot-password
+
+  - id: login
+    title: Login Screen
+    type: screen
+    ref: screens/login
+
+  - id: signup
+    title: Signup Screen
+    type: screen
+
+  - id: forgot-password
+    title: Forgot Password
+    type: screen
+
+  - id: main
+    title: Main App
+    type: module
+    description: Core application features
+    children:
+      - dashboard
+      - settings
+      - profile
+
+  - id: dashboard
+    title: Dashboard
+    type: screen
+    ref: screens/dashboard
+
+  - id: settings
+    title: Settings
+    type: screen
+
+  - id: profile
+    title: User Profile
+    type: screen
+
+relationships:
+  - from: login
+    to: dashboard
+    type: navigates
+    label: successful login
+
+  - from: signup
+    to: login
+    type: navigates
+    label: after signup
+
+  - from: dashboard
+    to: settings
+    type: navigates
+
+  - from: dashboard
+    to: profile
+    type: navigates
