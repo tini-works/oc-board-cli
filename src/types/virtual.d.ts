@@ -23,13 +23,25 @@ declare module 'virtual:prev-page-modules' {
 }
 
 declare module 'virtual:prev-previews' {
+  import type { PreviewUnit } from '../vite/preview-types'
+
   export interface Preview {
     name: string
     route: string
     htmlPath: string
   }
 
+  // Multi-type preview units
+  export const previewUnits: PreviewUnit[]
+
+  // Legacy flat previews (backwards compatibility)
   export const previews: Preview[]
+
+  // Filtering helpers
+  export function getByType(type: string): PreviewUnit[]
+  export function getByTags(tags: string[]): PreviewUnit[]
+  export function getByCategory(category: string): PreviewUnit[]
+  export function getByStatus(status: string): PreviewUnit[]
 }
 
 declare module 'virtual:prev-config' {

@@ -1,6 +1,6 @@
 // src/vite/plugins/previews-plugin.ts
 import type { Plugin } from 'vite'
-import { scanPreviews, buildPreviewConfig } from '../previews'
+import { scanPreviews, scanPreviewUnits, buildPreviewConfig } from '../previews'
 import { buildPreviewHtml } from '../../preview-runtime/build'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import path from 'path'
@@ -26,14 +26,47 @@ export function previewsPlugin(rootDir: string): Plugin {
 
     async load(id) {
       if (id === RESOLVED_VIRTUAL_MODULE_ID) {
-        const previews = await scanPreviews(rootDir)
-        return `export const previews = ${JSON.stringify(previews)};`
+        // Use new multi-type scanner
+        const units = await scanPreviewUnits(rootDir)
+
+        // Also get legacy flat previews for backwards compatibility
+        const legacyPreviews = await scanPreviews(rootDir)
+
+        return `
+// Multi-type preview units
+export const previewUnits = ${JSON.stringify(units)};
+
+// Legacy flat previews (backwards compatibility)
+export const previews = ${JSON.stringify(legacyPreviews)};
+
+// Filtering helpers
+export function getByType(type) {
+  return previewUnits.filter(u => u.type === type);
+}
+
+export function getByTags(tags) {
+  return previewUnits.filter(u =>
+    u.config?.tags?.some(t => tags.includes(t))
+  );
+}
+
+export function getByCategory(category) {
+  return previewUnits.filter(u => u.config?.category === category);
+}
+
+export function getByStatus(status) {
+  return previewUnits.filter(u => u.config?.status === status);
+}
+`
       }
     },
 
     handleHotUpdate({ file, server }) {
-      // Invalidate when preview files change (HTML, TSX, CSS, etc.)
-      if (file.includes('/previews/') && /\.(html|tsx|ts|jsx|js|css)$/.test(file)) {
+      // Invalidate when preview files change (HTML, TSX, CSS, YAML, MDX, etc.)
+      // Use path-agnostic check for cross-platform compatibility (Fix 10)
+      const previewsPath = path.sep + 'previews' + path.sep
+      if ((file.includes(previewsPath) || file.includes('/previews/')) &&
+          /\.(html|tsx|ts|jsx|js|css|yaml|yml|mdx)$/.test(file)) {
         const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_MODULE_ID)
         if (mod) {
           server.moduleGraph.invalidateModule(mod)
