@@ -1,12 +1,23 @@
 import { $ } from 'bun'
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
 import { tmpdir } from 'os'
-import { fileURLToPath } from 'url'
 
-// Resolve tailwindcss CLI from this package's node_modules
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const tailwindBin = join(__dirname, '../../node_modules/.bin/tailwindcss')
+// Resolve tailwindcss CLI - try multiple locations
+function findTailwindBin(): string {
+  // Try require.resolve to find the tailwindcss package
+  try {
+    const tailwindPkg = require.resolve('tailwindcss/package.json')
+    const tailwindDir = dirname(tailwindPkg)
+    const binPath = join(tailwindDir, 'lib/cli.js')
+    if (existsSync(binPath)) return binPath
+  } catch {}
+
+  // Fallback: use bunx (slower but always works)
+  return 'bunx tailwindcss@3'
+}
+
+const tailwindCmd = findTailwindBin()
 
 export interface TailwindResult {
   success: boolean
@@ -51,8 +62,12 @@ export async function compileTailwind(files: ContentFile[]): Promise<TailwindRes
 
     const outputPath = join(tempDir, 'output.css')
 
-    // Run Tailwind CLI from package's node_modules
-    await $`${tailwindBin} -c ${configPath} -i ${inputPath} -o ${outputPath} --minify`.quiet()
+    // Run Tailwind CLI
+    if (tailwindCmd.startsWith('bunx')) {
+      await $`bunx tailwindcss@3 -c ${configPath} -i ${inputPath} -o ${outputPath} --minify`.quiet()
+    } else {
+      await $`bun ${tailwindCmd} -c ${configPath} -i ${inputPath} -o ${outputPath} --minify`.quiet()
+    }
 
     const css = readFileSync(outputPath, 'utf-8')
 

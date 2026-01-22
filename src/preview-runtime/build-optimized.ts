@@ -110,7 +110,12 @@ export async function buildOptimizedPreview(
       if (tailwindResult.success) css = tailwindResult.css
     }
 
-    const userCss = userCssCollected.join('\n')
+    // Strip @import "tailwindcss" from user CSS when Tailwind is compiled
+    // (the import is Tailwind v4 dev syntax, not valid for static HTML)
+    let userCss = userCssCollected.join('\n')
+    if (config.tailwind) {
+      userCss = userCss.replace(/@import\s*["']tailwindcss["']\s*;?/g, '')
+    }
     const allCss = css + '\n' + userCss
 
     const html = `<!DOCTYPE html>
