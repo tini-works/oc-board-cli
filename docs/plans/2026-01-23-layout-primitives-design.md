@@ -140,16 +140,89 @@ Placeholder for state-dependent content. Filled by `slots` mapping.
 
 ```yaml
 template:
-  - $col:
-      - components/header
-      - $slot(main)
-      - components/footer
+  root:
+    type: $col
+    children:
+      header: components/header
+      main: $slot(main)
+      footer: components/footer
 
 slots:
   main:
     default: components/home
     loading: components/spinner
 ```
+
+### `$text(content props...)`
+
+Text content. First positional arg is content (prop reference or quoted literal).
+
+| Prop | Values | Default |
+|------|--------|---------|
+| `size` | `xs`, `sm`, `md`, `lg`, `xl` | `md` |
+| `weight` | `normal`, `medium`, `bold` | `normal` |
+| `color` | color token | `default` |
+
+```yaml
+title: $text(label size:lg weight:bold)
+subtitle: $text("Welcome back" color:muted)
+```
+
+### `$icon(props)`
+
+Icon reference.
+
+| Prop | Values | Default |
+|------|--------|---------|
+| `name` | icon identifier (prop ref or string) | required |
+| `size` | `xs`, `sm`, `md`, `lg`, `xl` | `md` |
+| `color` | color token | `default` |
+
+```yaml
+check: $icon(name:icon size:sm color:success)
+```
+
+### `$image(props)`
+
+Image element.
+
+| Prop | Values | Default |
+|------|--------|---------|
+| `src` | image URL (prop ref or string) | required |
+| `alt` | alt text | `""` |
+| `fit` | `cover`, `contain`, `fill` | `cover` |
+
+```yaml
+avatar: $image(src:avatarUrl alt:"User avatar" fit:cover)
+```
+
+## Template Structure (Map-based)
+
+Templates use maps instead of arrays - every element has an id (the key).
+
+**Structure:**
+- **Container nodes:** `{ type: $primitive(props), children: { ... } }`
+- **Leaf nodes (shorthand):** `id: $primitive(props)` or `id: components/ref`
+
+```yaml
+template:
+  root:
+    type: $col(gap:lg)
+    children:
+      header:
+        type: $row(gap:xs)
+        children:
+          logo: $icon(name:icon)
+          title: $text(label)
+      content: $slot(main)
+      footer: components/footer
+```
+
+**Why maps over arrays:**
+- Every element has an id (the key)
+- Easy to reference: `root.header.logo`
+- Extensible: can add `props:`, `visible:`, `order:` later
+- JSON Schema friendly, matches json-render pattern
 
 ## Screen Config Structure
 
@@ -166,17 +239,23 @@ states:
   error: { description: "Login failed" }
   authenticated: { description: "Success" }
 
-# Static UI structure
+# Static UI structure (map-based)
 template:
-  - $col(gap:lg align:center):
-      - $spacer(xl)
-      - components/logo
-      - $box(padding:lg bg:surface radius:md):
-          - $slot(form)
-      - $row(gap:sm):
-          - components/forgot-link
-          - components/signup-link
-      - $spacer(xl)
+  root:
+    type: $col(gap:lg align:center)
+    children:
+      top-spacer: $spacer(xl)
+      logo: components/logo
+      form-container:
+        type: $box(padding:lg bg:surface radius:md)
+        children:
+          form: $slot(form)
+      links:
+        type: $row(gap:sm)
+        children:
+          forgot: components/forgot-link
+          signup: components/signup-link
+      bottom-spacer: $spacer(xl)
 
 # State-dependent content
 slots:
@@ -187,12 +266,40 @@ slots:
     authenticated: components/success-message
 ```
 
+## Component Config Structure
+
+Components are fully declarative with props schema and template.
+
+```yaml
+kind: component
+id: button
+
+props:
+  label: { type: string, required: true }
+  variant: { type: enum, values: [primary, secondary], default: primary }
+  icon: { type: string }
+  disabled: { type: boolean, default: false }
+
+template:
+  root:
+    type: $box(padding:sm bg:variant radius:sm)
+    children:
+      content:
+        type: $row(gap:xs align:center)
+        children:
+          icon: $icon(name:icon)
+          label: $text(label weight:medium)
+```
+
+**Prop references:** Bare words in template refer to props (e.g., `label`, `variant`, `icon`).
+
 ## Parsing Rules
 
 1. **Starts with `$`** → Primitive
 2. **Contains `/`** → Component/screen/flow reference
 3. **Props in parentheses** → Parse as `key:value` pairs
-4. **Children as nested YAML** → Recursive structure
+4. **Has `type:` and `children:`** → Container node
+5. **Direct value** → Leaf node (shorthand)
 
 ## Migration from layoutByRenderer
 
@@ -210,23 +317,90 @@ layoutByRenderer:
 New format:
 ```yaml
 template:
-  - $col(gap:lg):
-      - components/header
+  root:
+    type: $col(gap:lg)
+    children:
+      header: components/header
 ```
 
 The `layoutByRenderer` field remains available for renderer-specific overrides when needed.
+
+## Complete Example: Login Screen
+
+```yaml
+kind: screen
+id: login
+title: Login Screen
+schemaVersion: "2.0"
+
+states:
+  default: { description: "Ready to login" }
+  logging-in: { description: "Submitting credentials" }
+  error: { description: "Login failed" }
+
+template:
+  root:
+    type: $col(gap:lg align:center)
+    children:
+      spacer-top: $spacer(xl)
+      logo: components/logo
+      card:
+        type: $box(padding:lg bg:surface radius:md)
+        children:
+          form: $slot(form)
+      links:
+        type: $row(gap:sm)
+        children:
+          forgot: components/forgot-link
+          divider: $text("·" color:muted)
+          signup: components/signup-link
+      spacer-bottom: $spacer(xl)
+
+slots:
+  form:
+    default: components/login-form
+    logging-in: components/spinner
+    error: components/login-form-error
+```
+
+## Complete Example: Button Component
+
+```yaml
+kind: component
+id: button
+
+props:
+  label: { type: string, required: true }
+  variant: { type: enum, values: [primary, secondary, ghost], default: primary }
+  icon: { type: string }
+  disabled: { type: boolean, default: false }
+
+template:
+  root:
+    type: $box(padding:sm bg:variant radius:sm)
+    children:
+      content:
+        type: $row(gap:xs align:center)
+        children:
+          icon: $icon(name:icon size:sm)
+          label: $text(label weight:medium)
+```
 
 ## Implementation Tasks
 
 1. Update `src/schemas/layout-primitives.schema.json` with new primitive definitions
 2. Add primitive parser to handle `$name(props)` syntax
-3. Update screen schema to use `template` and `slots` fields
-4. Update validators for new syntax
-5. Update React/HTML adapters to render primitives
-6. Add migration path from `layoutByRenderer` to `template`
+3. Add template parser for map-based structure (type/children)
+4. Update screen schema: `template` (map), `slots` (state→content)
+5. Update component schema: `props` (schema), `template` (map)
+6. Update validators for new syntax and prop references
+7. Update React/HTML adapters to render primitives
+8. Add content primitives: `$text`, `$icon`, `$image`
+9. Add migration tool from `layoutByRenderer` to `template`
 
 ## Open Questions
 
 - Should `$slot` support default content inline? e.g., `$slot(main default:components/fallback)`
 - Should we support conditional primitives? e.g., `$if(state:error):`
 - Token customization per-project?
+- How to handle `order:` when YAML map order isn't sufficient?
