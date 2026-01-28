@@ -1,0 +1,197 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "preview-v1.schema.json",
+  "description": "Schema for prev-cli preview configs (v1 - transitional mode, kind optional)",
+  "oneOf": [
+    { "$ref": "#/definitions/component" },
+    { "$ref": "#/definitions/screen" },
+    { "$ref": "#/definitions/flow" },
+    { "$ref": "#/definitions/atlas" },
+    { "$ref": "#/definitions/untyped" }
+  ],
+  "definitions": {
+    "baseProperties": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["component", "screen", "flow", "atlas"] },
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "tags": {
+          "oneOf": [
+            { "type": "array", "items": { "type": "string" } },
+            { "type": "string" }
+          ]
+        },
+        "status": { "enum": ["draft", "stable", "deprecated"] },
+        "schemaVersion": { "type": "string", "default": "1.0" }
+      }
+    },
+    "ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^(screens|components|flows|atlas)/[a-z0-9-]+$" },
+        {
+          "type": "object",
+          "properties": {
+            "ref": { "type": "string", "pattern": "^(screens|components|flows|atlas)/[a-z0-9-]+$" },
+            "state": { "type": "string" },
+            "options": { "type": "object" }
+          },
+          "required": ["ref"]
+        }
+      ]
+    },
+    "untyped": {
+      "description": "Config without explicit kind field (inferred from directory in v1). Validator will warn about missing kind. Prefer using typed configs.",
+      "allOf": [
+        { "$ref": "#/definitions/baseProperties" },
+        {
+          "not": {
+            "properties": {
+              "kind": { "enum": ["component", "screen", "flow", "atlas"] }
+            },
+            "required": ["kind"]
+          }
+        },
+        {
+          "anyOf": [
+            { "required": ["layoutByRenderer"] },
+            { "required": ["steps"] },
+            { "required": ["nodes"] },
+            { "required": ["props"] },
+            { "required": ["id"] }
+          ]
+        }
+      ],
+      "required": ["title"]
+    },
+    "component": {
+      "allOf": [
+        { "$ref": "#/definitions/baseProperties" },
+        {
+          "properties": {
+            "kind": { "const": "component" },
+            "props": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string" },
+                  "required": { "type": "boolean" },
+                  "default": {},
+                  "enum": { "type": "array" }
+                }
+              }
+            },
+            "slots": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          },
+          "required": ["kind", "title"]
+        }
+      ]
+    },
+    "screen": {
+      "allOf": [
+        { "$ref": "#/definitions/baseProperties" },
+        {
+          "properties": {
+            "kind": { "const": "screen" },
+            "states": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "description": { "type": "string" }
+                }
+              }
+            },
+            "layoutByRenderer": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": true,
+              "description": "Keys must match registered RendererAdapter.name values. At least one renderer required."
+            }
+          },
+          "required": ["kind", "title", "layoutByRenderer"]
+        }
+      ]
+    },
+    "flow": {
+      "allOf": [
+        { "$ref": "#/definitions/baseProperties" },
+        {
+          "properties": {
+            "kind": { "const": "flow" },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+                  "title": { "type": "string" },
+                  "screen": { "$ref": "#/definitions/ref" }
+                },
+                "required": ["id", "title", "screen"]
+              }
+            },
+            "transitions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" },
+                  "trigger": { "type": "string" }
+                },
+                "required": ["from", "to", "trigger"]
+              }
+            }
+          },
+          "required": ["kind", "title"]
+        }
+      ]
+    },
+    "atlas": {
+      "allOf": [
+        { "$ref": "#/definitions/baseProperties" },
+        {
+          "properties": {
+            "kind": { "const": "atlas" },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+                  "title": { "type": "string" },
+                  "ref": { "$ref": "#/definitions/ref" }
+                },
+                "required": ["id", "title"]
+              }
+            },
+            "relationships": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" },
+                  "type": { "type": "string" }
+                },
+                "required": ["from", "to", "type"]
+              }
+            }
+          },
+          "required": ["kind", "title"]
+        }
+      ]
+    }
+  }
+}

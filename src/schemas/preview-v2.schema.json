@@ -1,0 +1,206 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "preview-v2.schema.json",
+  "description": "Schema for prev-cli preview configs (v2 - strict mode, kind required)",
+  "oneOf": [
+    { "$ref": "#/definitions/component" },
+    { "$ref": "#/definitions/screen" },
+    { "$ref": "#/definitions/flow" },
+    { "$ref": "#/definitions/atlas" }
+  ],
+  "definitions": {
+    "base": {
+      "type": "object",
+      "properties": {
+        "kind": { "enum": ["component", "screen", "flow", "atlas"] },
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "status": { "enum": ["draft", "stable", "deprecated"] },
+        "schemaVersion": { "const": "2.0" }
+      },
+      "required": ["kind", "id", "title", "schemaVersion"]
+    },
+    "ref": {
+      "oneOf": [
+        { "type": "string", "pattern": "^(screens|components|flows|atlas)/[a-z0-9-]+$" },
+        {
+          "type": "object",
+          "properties": {
+            "ref": { "type": "string", "pattern": "^(screens|components|flows|atlas)/[a-z0-9-]+$" },
+            "state": { "type": "string" },
+            "options": { "type": "object" }
+          },
+          "required": ["ref"]
+        }
+      ]
+    },
+    "component": {
+      "allOf": [
+        { "$ref": "#/definitions/base" },
+        {
+          "properties": {
+            "kind": { "const": "component" },
+            "props": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string" },
+                  "required": { "type": "boolean" },
+                  "default": {},
+                  "values": { "type": "array" },
+                  "enum": { "type": "array" }
+                }
+              }
+            },
+            "template": { "$ref": "#/definitions/template" },
+            "slots": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "description": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "templateNode": {
+      "description": "A template node: string (primitive/ref) or object (container)",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "pattern": "^\\$[a-z]+" },
+            "children": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/templateNode" }
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "template": {
+      "type": "object",
+      "properties": {
+        "root": { "$ref": "#/definitions/templateNode" }
+      },
+      "required": ["root"]
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      },
+      "description": "State-dependent content. Keys are slot names, values map state names to content refs."
+    },
+    "screen": {
+      "allOf": [
+        { "$ref": "#/definitions/base" },
+        {
+          "properties": {
+            "kind": { "const": "screen" },
+            "states": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "description": { "type": "string" }
+                }
+              }
+            },
+            "template": { "$ref": "#/definitions/template" },
+            "slots": { "$ref": "#/definitions/slots" },
+            "layoutByRenderer": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": true,
+              "description": "Legacy: Keys must match registered RendererAdapter.name values. Prefer using template."
+            }
+          },
+          "anyOf": [
+            { "required": ["template"] },
+            { "required": ["layoutByRenderer"] }
+          ]
+        }
+      ]
+    },
+    "flow": {
+      "allOf": [
+        { "$ref": "#/definitions/base" },
+        {
+          "properties": {
+            "kind": { "const": "flow" },
+            "steps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+                  "title": { "type": "string" },
+                  "screen": { "$ref": "#/definitions/ref" }
+                },
+                "required": ["id", "title", "screen"]
+              }
+            },
+            "transitions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" },
+                  "trigger": { "type": "string" }
+                },
+                "required": ["from", "to", "trigger"]
+              }
+            }
+          },
+          "required": ["steps"]
+        }
+      ]
+    },
+    "atlas": {
+      "allOf": [
+        { "$ref": "#/definitions/base" },
+        {
+          "properties": {
+            "kind": { "const": "atlas" },
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+                  "title": { "type": "string" },
+                  "ref": { "$ref": "#/definitions/ref" }
+                },
+                "required": ["id", "title"]
+              }
+            },
+            "relationships": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" },
+                  "type": { "type": "string" }
+                },
+                "required": ["from", "to", "type"]
+              }
+            }
+          },
+          "required": ["nodes"]
+        }
+      ]
+    }
+  }
+}

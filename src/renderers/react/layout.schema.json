@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "react-layout.schema.json",
+  "description": "React-specific layout schema for prev-cli previews",
+  "definitions": {
+    "componentRef": {
+      "type": "object",
+      "description": "Reference to a component with optional props",
+      "properties": {
+        "type": { "const": "ComponentRef" },
+        "ref": {
+          "type": "string",
+          "pattern": "^components/[a-z0-9-]+$",
+          "description": "Reference to a component (e.g., components/button)"
+        },
+        "props": {
+          "type": "object",
+          "description": "Props to pass to the component"
+        }
+      },
+      "required": ["type", "ref"]
+    },
+    "slot": {
+      "type": "object",
+      "description": "Named insertion point for content",
+      "properties": {
+        "type": { "const": "Slot" },
+        "name": {
+          "type": "string",
+          "description": "Slot identifier"
+        },
+        "default": {
+          "type": "array",
+          "description": "Default content when slot is empty",
+          "items": { "$ref": "#/definitions/layoutNode" }
+        }
+      },
+      "required": ["type", "name"]
+    },
+    "reactElement": {
+      "type": "object",
+      "description": "React JSX-like element",
+      "properties": {
+        "type": { "type": "string", "description": "React component name or HTML tag" },
+        "props": { "type": "object", "description": "Props to pass to the element" },
+        "children": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "$ref": "#/definitions/layoutNode" } }
+          ]
+        }
+      },
+      "required": ["type"]
+    },
+    "layoutNode": {
+      "oneOf": [
+        { "$ref": "#/definitions/componentRef" },
+        { "$ref": "#/definitions/slot" },
+        { "$ref": "#/definitions/reactElement" }
+      ]
+    }
+  },
+  "type": "array",
+  "items": { "$ref": "#/definitions/layoutNode" }
+}

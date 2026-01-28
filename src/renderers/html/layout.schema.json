@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "html-layout.schema.json",
+  "description": "HTML-specific layout schema for prev-cli previews",
+  "definitions": {
+    "componentRef": {
+      "type": "object",
+      "description": "Reference to a component with optional props",
+      "properties": {
+        "type": { "const": "ComponentRef" },
+        "ref": {
+          "type": "string",
+          "pattern": "^components/[a-z0-9-]+$",
+          "description": "Reference to a component (e.g., components/button)"
+        },
+        "props": {
+          "type": "object",
+          "description": "Props to pass to the component"
+        }
+      },
+      "required": ["type", "ref"]
+    },
+    "slot": {
+      "type": "object",
+      "description": "Named insertion point for content",
+      "properties": {
+        "type": { "const": "Slot" },
+        "name": {
+          "type": "string",
+          "description": "Slot identifier"
+        },
+        "default": {
+          "type": "array",
+          "description": "Default content when slot is empty",
+          "items": { "$ref": "#/definitions/layoutNode" }
+        }
+      },
+      "required": ["type", "name"]
+    },
+    "htmlElement": {
+      "type": "object",
+      "description": "HTML semantic element",
+      "properties": {
+        "tag": {
+          "type": "string",
+          "description": "HTML tag name (e.g., div, main, header, section)"
+        },
+        "attributes": {
+          "type": "object",
+          "description": "HTML attributes (class, id, data-*, etc.)",
+          "additionalProperties": { "type": "string" }
+        },
+        "children": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "$ref": "#/definitions/layoutNode" } }
+          ]
+        }
+      },
+      "required": ["tag"]
+    },
+    "layoutNode": {
+      "oneOf": [
+        { "$ref": "#/definitions/componentRef" },
+        { "$ref": "#/definitions/slot" },
+        { "$ref": "#/definitions/htmlElement" }
+      ]
+    }
+  },
+  "type": "array",
+  "items": { "$ref": "#/definitions/layoutNode" }
+}

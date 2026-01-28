@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "layout-primitives.schema.json",
+  "title": "Layout Primitives Schema",
+  "description": "Schema for renderer-agnostic layout primitives and templates",
+
+  "definitions": {
+    "spacingToken": {
+      "enum": ["none", "xs", "sm", "md", "lg", "xl", "2xl"],
+      "description": "Design token for spacing values"
+    },
+    "alignToken": {
+      "enum": ["start", "center", "end", "stretch", "between"],
+      "description": "Design token for alignment"
+    },
+    "backgroundToken": {
+      "enum": ["transparent", "surface", "muted", "accent"],
+      "description": "Design token for background colors"
+    },
+    "radiusToken": {
+      "enum": ["none", "sm", "md", "lg", "full"],
+      "description": "Design token for border radius"
+    },
+    "colorToken": {
+      "enum": ["default", "muted", "primary", "success", "error"],
+      "description": "Design token for text/icon colors"
+    },
+    "sizeToken": {
+      "enum": ["xs", "sm", "md", "lg", "xl"],
+      "description": "Design token for sizing"
+    },
+    "weightToken": {
+      "enum": ["normal", "medium", "bold"],
+      "description": "Design token for font weight"
+    },
+    "fitToken": {
+      "enum": ["cover", "contain", "fill"],
+      "description": "Design token for image fit"
+    },
+
+    "primitiveString": {
+      "type": "string",
+      "pattern": "^\\$[a-z]+(\\([^)]*\\))?$",
+      "description": "Primitive syntax: $name or $name(props). Examples: $col, $row(gap:lg), $text(label size:md)"
+    },
+
+    "refString": {
+      "type": "string",
+      "pattern": "^(screens|components|flows|atlas)/[a-z0-9-]+$",
+      "description": "Reference to another preview unit. Example: components/button"
+    },
+
+    "templateLeaf": {
+      "description": "Leaf node: primitive string or component reference",
+      "oneOf": [
+        { "$ref": "#/definitions/primitiveString" },
+        { "$ref": "#/definitions/refString" }
+      ]
+    },
+
+    "templateContainer": {
+      "type": "object",
+      "description": "Container node with type and children",
+      "properties": {
+        "type": {
+          "$ref": "#/definitions/primitiveString",
+          "description": "Primitive type with optional props, e.g., $col(gap:lg)"
+        },
+        "children": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/templateNode"
+          },
+          "description": "Child nodes keyed by unique id"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+
+    "templateNode": {
+      "description": "A template node: either a leaf (string) or container (object with type)",
+      "oneOf": [
+        { "$ref": "#/definitions/templateLeaf" },
+        { "$ref": "#/definitions/templateContainer" }
+      ]
+    },
+
+    "template": {
+      "type": "object",
+      "description": "Template root structure with map-based children",
+      "properties": {
+        "root": {
+          "$ref": "#/definitions/templateNode",
+          "description": "Root node of the template tree"
+        }
+      },
+      "required": ["root"],
+      "additionalProperties": false
+    },
+
+    "slotContent": {
+      "description": "Content for a slot: primitive or component ref",
+      "oneOf": [
+        { "$ref": "#/definitions/primitiveString" },
+        { "$ref": "#/definitions/refString" }
+      ]
+    },
+
+    "slotMapping": {
+      "type": "object",
+      "description": "State-to-content mapping for a slot. Keys are state names, values are content refs.",
+      "additionalProperties": {
+        "$ref": "#/definitions/slotContent"
+      }
+    },
+
+    "slots": {
+      "type": "object",
+      "description": "State-dependent content placeholders. Keys are slot names (matching $slot(name) in template).",
+      "additionalProperties": {
+        "$ref": "#/definitions/slotMapping"
+      }
+    },
+
+    "propDefinition": {
+      "type": "object",
+      "description": "Component prop schema definition",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "enum", "object", "array"],
+          "description": "Prop type"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this prop is required"
+        },
+        "default": {
+          "description": "Default value for optional props"
+        },
+        "values": {
+          "type": "array",
+          "description": "Allowed values for enum type"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        }
+      }
+    },
+
+    "propsSchema": {
+      "type": "object",
+      "description": "Component props schema. Keys are prop names.",
+      "additionalProperties": {
+        "$ref": "#/definitions/propDefinition"
+      }
+    },
+
+    "stateDefinition": {
+      "type": "object",
+      "description": "Screen state definition",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of this state"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "statesSchema": {
+      "type": "object",
+      "description": "Screen states. Keys are state names (e.g., 'default', 'loading', 'error').",
+      "additionalProperties": {
+        "$ref": "#/definitions/stateDefinition"
+      }
+    },
+
+    "componentRef": {
+      "type": "object",
+      "description": "Legacy: Reference to a component with optional props (for layoutByRenderer compatibility)",
+      "properties": {
+        "type": { "const": "ComponentRef" },
+        "ref": {
+          "type": "string",
+          "pattern": "^components/[a-z0-9-]+$",
+          "description": "Reference to a component"
+        },
+        "props": {
+          "type": "object",
+          "description": "Props to pass to the component"
+        }
+      },
+      "required": ["type", "ref"]
+    },
+
+    "legacySlot": {
+      "type": "object",
+      "description": "Legacy: Named slot for layoutByRenderer compatibility",
+      "properties": {
+        "type": { "const": "Slot" },
+        "name": {
+          "type": "string",
+          "description": "Slot identifier"
+        },
+        "default": {
+          "type": "array",
+          "description": "Default content when slot is empty",
+          "items": { "$ref": "#/definitions/layoutNode" }
+        }
+      },
+      "required": ["type", "name"]
+    },
+
+    "layoutNode": {
+      "description": "Legacy: A layout node for layoutByRenderer compatibility",
+      "oneOf": [
+        { "$ref": "#/definitions/componentRef" },
+        { "$ref": "#/definitions/legacySlot" },
+        {
+          "type": "object",
+          "description": "Renderer-specific node (validated by adapter's layoutSchema)"
+        }
+      ]
+    },
+
+    "layoutTree": {
+      "description": "Legacy: Array of layout nodes for layoutByRenderer",
+      "type": "array",
+      "items": { "$ref": "#/definitions/layoutNode" }
+    }
+  }
+}
