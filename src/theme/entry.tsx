@@ -518,8 +518,9 @@ function PreviewPage() {
             State:
           </span>
           <div style={{
-            display: 'flex',
-            gap: '4px',
+            display: 'inline-flex',
+            flexDirection: 'row',
+            alignItems: 'center',
             backgroundColor: 'var(--fd-muted)',
             borderRadius: '8px',
             padding: '4px',
@@ -537,11 +538,12 @@ function PreviewPage() {
                 color: selectedState === null ? 'var(--fd-foreground)' : 'var(--fd-muted-foreground)',
                 boxShadow: selectedState === null ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                 transition: 'all 0.15s ease',
+                marginRight: '4px',
               }}
             >
               Default
             </button>
-            {states.map((stateFile: string) => {
+            {states.map((stateFile: string, index: number) => {
               const stateName = stateFile.replace(/\.(tsx|jsx)$/, '')
               const isSelected = selectedState === stateName
               return (
@@ -560,6 +562,7 @@ function PreviewPage() {
                     boxShadow: isSelected ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                     transition: 'all 0.15s ease',
                     textTransform: 'capitalize',
+                    marginRight: index < states.length - 1 ? '4px' : 0,
                   }}
                 >
                   {stateName.replace(/[-_]/g, ' ')}
