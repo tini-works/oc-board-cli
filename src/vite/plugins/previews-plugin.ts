@@ -1,7 +1,7 @@
 // src/vite/plugins/previews-plugin.ts
 import type { Plugin } from 'vite'
 import { scanPreviews, scanPreviewUnits, buildPreviewConfig } from '../previews'
-import { buildVendorBundle } from '../../preview-runtime/vendors'
+import { buildVendorBundle, buildJsxBundle } from '../../preview-runtime/vendors'
 import { buildOptimizedPreview } from '../../preview-runtime/build-optimized'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import path from 'path'
@@ -111,6 +111,15 @@ export function getByStatus(status) {
       }
       writeFileSync(path.join(vendorsDir, 'runtime.js'), vendorResult.code)
       console.log('    ✓ _vendors/runtime.js')
+
+      // Step 1b: Build @prev/jsx bundle
+      const jsxResult = await buildJsxBundle('../_vendors/runtime.js')
+      if (!jsxResult.success) {
+        console.error(`    ✗ JSX bundle: ${jsxResult.error}`)
+        return
+      }
+      writeFileSync(path.join(vendorsDir, 'jsx.js'), jsxResult.code)
+      console.log('    ✓ _vendors/jsx.js')
 
       // Step 2: Build each preview with optimized builder
       for (const preview of previews) {

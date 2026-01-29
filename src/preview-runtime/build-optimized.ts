@@ -4,6 +4,7 @@ import { compileTailwind } from './tailwind'
 
 export interface OptimizedBuildOptions {
   vendorPath: string
+  jsxPath?: string
 }
 
 export interface OptimizedBuildResult {
@@ -68,6 +69,18 @@ export async function buildOptimizedPreview(
               return { path: options.vendorPath, external: true }
             })
 
+            // External: @prev/jsx (map to jsx bundle)
+            build.onResolve({ filter: /^@prev\/jsx$/ }, () => {
+              const jsxPath = options.jsxPath || options.vendorPath.replace('runtime.js', 'jsx.js')
+              return { path: jsxPath, external: true }
+            })
+
+            // External: @prev/components/* (not supported in static builds yet)
+            build.onResolve({ filter: /^@prev\/components\// }, args => {
+              console.warn(`    Warning: @prev/components imports not supported in static builds: ${args.path}`)
+              return { path: args.path, external: true }
+            })
+
             // Resolve relative imports
             build.onResolve({ filter: /^\./ }, args => {
               let resolved = args.path.replace(/^\.\//, '')
@@ -118,6 +131,7 @@ export async function buildOptimizedPreview(
     }
     const allCss = css + '\n' + userCss
 
+    const jsxPath = options.jsxPath || options.vendorPath.replace('runtime.js', 'jsx.js')
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -130,6 +144,7 @@ export async function buildOptimizedPreview(
 <body>
   <div id="root"></div>
   <script type="module" src="${options.vendorPath}"></script>
+  <script type="module" src="${jsxPath}"></script>
   <script type="module">${jsCode}</script>
 </body>
 </html>`
