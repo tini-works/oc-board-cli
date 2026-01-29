@@ -1,9 +1,9 @@
-// previews/screens/pricing/index.tsx
+// previews/screens/pricing/trial.tsx
 import { Button } from '../../components/button'
 import { Badge } from '../../components/badge'
-import { brand, colors, plans } from '../../shared/data'
+import { colors, plans } from '../../shared/data'
 
-export default function Pricing() {
+export default function PricingTrial() {
   return (
     <div style={{
       minHeight: '100vh',
@@ -12,13 +12,38 @@ export default function Pricing() {
       padding: '64px 32px',
     }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+        {/* Trial banner */}
+        <div style={{
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fde68a',
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 32,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 24 }}>⏰</span>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#92400e' }}>
+                Your Pro trial ends in 7 days
+              </div>
+              <div style={{ fontSize: 14, color: '#a16207' }}>
+                Upgrade now to keep all your Pro features
+              </div>
+            </div>
+          </div>
+          <Button variant="primary">Upgrade Now</Button>
+        </div>
+
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h1 style={{ margin: '0 0 12px', fontSize: 36, fontWeight: 700, color: colors.gray900 }}>
-            Simple, transparent pricing
+            Choose your plan
           </h1>
           <p style={{ margin: 0, fontSize: 18, color: colors.gray500 }}>
-            Choose the plan that's right for your team
+            Upgrade before your trial ends to continue without interruption
           </p>
         </div>
 
@@ -44,7 +69,7 @@ export default function Pricing() {
                   left: '50%',
                   transform: 'translateX(-50%)',
                 }}>
-                  <Badge variant="success">Most Popular</Badge>
+                  <Badge variant="success">Recommended</Badge>
                 </div>
               )}
 
@@ -81,7 +106,7 @@ export default function Pricing() {
               </ul>
 
               <Button variant={plan.popular ? 'primary' : 'secondary'}>
-                {plan.cta}
+                {plan.name === 'Free' ? 'Downgrade' : plan.cta}
               </Button>
             </div>
           ))}

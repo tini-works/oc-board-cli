@@ -1,6 +1,12 @@
+# previews/screens/pricing/config.yaml
+kind: screen
+id: pricing
 title: Pricing
-description: SaaS pricing page with tiered plans
-tags: [screen, pricing, marketing]
+description: Plan comparison and selection
 status: stable
-category: screens
-order: 3
+schemaVersion: "2.0"
+tags: [screen, pricing, billing]
+states:
+  default: { description: "All plans displayed" }
+  current-plan: { description: "User's plan highlighted" }
+  trial: { description: "Trial countdown banner" }
