@@ -52,7 +52,8 @@ hierarchy:
 
   // Valid config.yml (alternate extension)
   writeFileSync(join(testDir, 'valid-config.yml'), `
-tags: alternate
+title: "Alternate Test"
+tags: [alternate]
 category: forms
 status: draft
 `)
@@ -63,31 +64,35 @@ afterAll(() => {
 })
 
 test('parsePreviewConfig parses valid config.yaml', async () => {
-  const config = await parsePreviewConfig(join(testDir, 'valid-config.yaml'))
+  const result = await parsePreviewConfig(join(testDir, 'valid-config.yaml'))
 
-  expect(config).not.toBeNull()
-  expect(config?.tags).toEqual(['core', 'interactive'])
-  expect(config?.category).toBe('inputs')
-  expect(config?.status).toBe('stable')
+  expect(result.data).not.toBeNull()
+  expect(result.errors).toHaveLength(0)
+  expect(result.data?.tags).toEqual(['core', 'interactive'])
+  expect(result.data?.category).toBe('inputs')
+  expect(result.data?.status).toBe('stable')
 })
 
 test('parsePreviewConfig parses valid config.yml (alternate extension)', async () => {
-  const config = await parsePreviewConfig(join(testDir, 'valid-config.yml'))
+  const result = await parsePreviewConfig(join(testDir, 'valid-config.yml'))
 
-  expect(config).not.toBeNull()
-  expect(config?.tags).toEqual(['alternate'])
-  expect(config?.category).toBe('forms')
-  expect(config?.status).toBe('draft')
+  expect(result.data).not.toBeNull()
+  expect(result.errors).toHaveLength(0)
+  expect(result.data?.tags).toEqual(['alternate'])
+  expect(result.data?.category).toBe('forms')
+  expect(result.data?.status).toBe('draft')
 })
 
-test('parsePreviewConfig returns null for invalid config', async () => {
-  const config = await parsePreviewConfig(join(testDir, 'invalid-config.yaml'))
-  expect(config).toBeNull()
+test('parsePreviewConfig returns errors for invalid config', async () => {
+  const result = await parsePreviewConfig(join(testDir, 'invalid-config.yaml'))
+  expect(result.data).toBeNull()
+  expect(result.errors.length).toBeGreaterThan(0)
 })
 
-test('parsePreviewConfig returns null for missing file', async () => {
-  const config = await parsePreviewConfig(join(testDir, 'nonexistent.yaml'))
-  expect(config).toBeNull()
+test('parsePreviewConfig returns errors for missing file', async () => {
+  const result = await parsePreviewConfig(join(testDir, 'nonexistent.yaml'))
+  expect(result.data).toBeNull()
+  expect(result.errors.length).toBeGreaterThan(0)
 })
 
 test('parseFlowDefinition parses flow.yaml', async () => {

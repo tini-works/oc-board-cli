@@ -1,24 +1,117 @@
 // src/vite/preview-types.ts
 import { z } from 'zod'
 
-// Preview content types
+// Preview content types (kind discriminator)
 export type PreviewType = 'component' | 'screen' | 'flow' | 'atlas'
 
-// Config.yaml schema
-export const configSchema = z.object({
-  // Allow both string and array for tags (YAML allows `tags: core` as scalar)
+// Reference format - string shorthand or object with state/options
+const refSchema = z.union([
+  z.string().regex(/^(screens|components|flows|atlas)\/[a-z0-9-]+$/),
+  z.object({
+    ref: z.string().regex(/^(screens|components|flows|atlas)\/[a-z0-9-]+$/),
+    state: z.string().optional(),
+    options: z.record(z.string(), z.unknown()).optional(),
+  })
+])
+
+// Base config schema shared by all types
+const baseConfigSchema = z.object({
+  kind: z.enum(['component', 'screen', 'flow', 'atlas']).optional(),
+  id: z.string().regex(/^[a-z0-9-]+$/).optional(),
+  title: z.string(),
+  description: z.string().optional(),
   tags: z.union([
     z.array(z.string()),
     z.string().transform(s => [s])
   ]).optional(),
   category: z.string().optional(),
   status: z.enum(['draft', 'stable', 'deprecated']).optional(),
-  title: z.string().optional(),
-  description: z.string().optional(),
+  schemaVersion: z.enum(['1.0', '2.0']).optional(),
   order: z.number().optional(),
 })
 
+// Component-specific schema
+export const componentConfigSchema = baseConfigSchema.extend({
+  kind: z.literal('component').optional(),
+  props: z.record(z.string(), z.object({
+    type: z.string().optional(),
+    required: z.boolean().optional(),
+    default: z.unknown().optional(),
+    enum: z.array(z.unknown()).optional(),
+  })).optional(),
+  slots: z.record(z.string(), z.object({
+    description: z.string().optional(),
+  })).optional(),
+})
+
+// Screen-specific schema
+export const screenConfigSchema = baseConfigSchema.extend({
+  kind: z.literal('screen').optional(),
+  states: z.record(z.string(), z.object({
+    description: z.string().optional(),
+  })).optional(),
+  layoutByRenderer: z.record(z.string(), z.array(z.unknown())).optional(),
+})
+
+// Flow step schema
+const flowStepSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  title: z.string(),
+  screen: refSchema,
+  note: z.string().optional(),
+  trigger: z.string().optional(),
+  highlight: z.array(z.string()).optional(),
+})
+
+// Flow transition schema
+const flowTransitionSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  trigger: z.string(),
+})
+
+// Flow-specific schema
+export const flowConfigSchema = baseConfigSchema.extend({
+  kind: z.literal('flow').optional(),
+  steps: z.array(flowStepSchema).optional(),
+  transitions: z.array(flowTransitionSchema).optional(),
+})
+
+// Atlas node schema
+const atlasNodeSchema = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  title: z.string(),
+  ref: refSchema.optional(),
+})
+
+// Atlas relationship schema
+const atlasRelationshipSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  type: z.string(),
+})
+
+// Atlas-specific schema
+export const atlasConfigSchema = baseConfigSchema.extend({
+  kind: z.literal('atlas').optional(),
+  nodes: z.array(atlasNodeSchema).optional(),
+  relationships: z.array(atlasRelationshipSchema).optional(),
+})
+
+// Union of all config schemas (for v1 transitional validation)
+export const configSchema = z.union([
+  componentConfigSchema,
+  screenConfigSchema,
+  flowConfigSchema,
+  atlasConfigSchema,
+  baseConfigSchema, // fallback for untyped configs
+])
+
 export type PreviewConfig = z.infer<typeof configSchema>
+export type ComponentConfig = z.infer<typeof componentConfigSchema>
+export type ScreenConfig = z.infer<typeof screenConfigSchema>
+export type FlowConfig = z.infer<typeof flowConfigSchema>
+export type AtlasConfig = z.infer<typeof atlasConfigSchema>
 
 // Extended preview unit with type awareness
 export interface PreviewUnit {
@@ -35,7 +128,7 @@ export interface PreviewUnit {
   }
 }
 
-// Flow step definition (from index.yaml)
+// Legacy FlowStep for backwards compatibility with existing index.yaml format
 export interface FlowStep {
   screen: string
   state?: string
@@ -44,14 +137,14 @@ export interface FlowStep {
   highlight?: string[]
 }
 
-// Flow definition
+// Legacy FlowDefinition for backwards compatibility
 export interface FlowDefinition {
   name: string
   description?: string
   steps: FlowStep[]
 }
 
-// Atlas area definition
+// Atlas area definition (legacy format)
 export interface AtlasArea {
   title: string
   description?: string
@@ -60,7 +153,7 @@ export interface AtlasArea {
   access?: string
 }
 
-// Atlas definition (from index.yaml)
+// Atlas definition (legacy format from index.yaml)
 export interface AtlasDefinition {
   name: string
   description?: string
