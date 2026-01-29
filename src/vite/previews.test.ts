@@ -60,18 +60,21 @@ beforeAll(() => {
   // Component with schema
   writeFileSync(join(multiTypeDir, 'previews/components/button/index.tsx'), 'export default () => null')
   writeFileSync(join(multiTypeDir, 'previews/components/button/schema.ts'), 'export const schema = {}')
-  writeFileSync(join(multiTypeDir, 'previews/components/button/config.yaml'), 'tags: [core]\nstatus: stable')
+  writeFileSync(join(multiTypeDir, 'previews/components/button/config.yaml'), 'title: Button\ntags: [core]\nstatus: stable')
 
   // Screen with states
   writeFileSync(join(multiTypeDir, 'previews/screens/login/index.tsx'), 'export default () => null')
   writeFileSync(join(multiTypeDir, 'previews/screens/login/error.tsx'), 'export default () => null')
   writeFileSync(join(multiTypeDir, 'previews/screens/login/loading.tsx'), 'export default () => null')
+  writeFileSync(join(multiTypeDir, 'previews/screens/login/config.yaml'), 'title: Login Screen\nstatus: stable')
 
   // Flow
   writeFileSync(join(multiTypeDir, 'previews/flows/onboarding/index.yaml'), 'name: Onboarding\nsteps: []')
+  writeFileSync(join(multiTypeDir, 'previews/flows/onboarding/config.yaml'), 'title: Onboarding Flow\nstatus: stable')
 
   // Atlas
   writeFileSync(join(multiTypeDir, 'previews/atlas/app/index.yaml'), 'name: App\nhierarchy:\n  root: home\n  areas:\n    home:\n      title: Home')
+  writeFileSync(join(multiTypeDir, 'previews/atlas/app/config.yaml'), 'title: App Atlas\nstatus: stable')
 })
 
 afterAll(() => {
