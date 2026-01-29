@@ -5,10 +5,11 @@ import { z } from 'zod'
 export type PreviewType = 'component' | 'screen' | 'flow' | 'atlas'
 
 // Reference format - string shorthand or object with state/options
+// Accepts both full paths (screens/login) and short names (login)
 const refSchema = z.union([
-  z.string().regex(/^(screens|components|flows|atlas)\/[a-z0-9-]+$/),
+  z.string().regex(/^([a-z0-9-]+|(screens|components|flows|atlas)\/[a-z0-9-]+)$/),
   z.object({
-    ref: z.string().regex(/^(screens|components|flows|atlas)\/[a-z0-9-]+$/),
+    ref: z.string().regex(/^([a-z0-9-]+|(screens|components|flows|atlas)\/[a-z0-9-]+)$/),
     state: z.string().optional(),
     options: z.record(z.string(), z.unknown()).optional(),
   })
@@ -53,11 +54,13 @@ export const screenConfigSchema = baseConfigSchema.extend({
   layoutByRenderer: z.record(z.string(), z.array(z.unknown())).optional(),
 })
 
-// Flow step schema
+// Flow step schema - flexible to match various config formats
 const flowStepSchema = z.object({
-  id: z.string().regex(/^[a-z0-9-]+$/),
-  title: z.string(),
+  id: z.string().optional(),  // Optional - can be auto-generated
+  title: z.string().optional(),
+  description: z.string().optional(),
   screen: refSchema,
+  state: z.string().optional(),
   note: z.string().optional(),
   trigger: z.string().optional(),
   highlight: z.array(z.string()).optional(),
