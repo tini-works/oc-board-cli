@@ -1,0 +1,7 @@
+kind: component
+id: avatar
+title: Avatar
+description: User avatar with size and status indicator
+status: stable
+schemaVersion: "2.0"
+tags: [component, identity, user]
