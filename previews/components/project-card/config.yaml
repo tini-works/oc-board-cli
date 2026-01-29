@@ -1,0 +1,7 @@
+kind: component
+id: project-card
+title: Project Card
+description: Project overview card with progress and team
+status: stable
+schemaVersion: "2.0"
+tags: [component, card, project]
