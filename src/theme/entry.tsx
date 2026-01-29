@@ -130,50 +130,55 @@ function groupByType(units: PreviewUnit[]): Map<PreviewType, PreviewUnit[]> {
   return grouped
 }
 
-// Category section component
+// Category section component with carousel navigation
 function CategorySection({ type, units }: { type: PreviewType; units: PreviewUnit[] }) {
   const meta = CATEGORY_META[type]
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  const scroll = (direction: 'left' | 'right') => {
+    const container = scrollRef.current
+    if (!container) return
+    const cardWidth = 280 + 16 // card width + gap
+    const scrollAmount = direction === 'left' ? -cardWidth : cardWidth
+    container.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+  }
 
   return (
-    <section style={{ marginBottom: '32px' }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-        marginBottom: '16px',
-        paddingBottom: '12px',
-        borderBottom: '1px solid var(--fd-border)',
-      }}>
-        <span style={{ fontSize: '20px' }}>{meta.icon}</span>
-        <div>
-          <h2 style={{
-            fontSize: '18px',
-            fontWeight: '600',
-            margin: 0,
-            color: 'var(--fd-foreground)',
-          }}>
+    <section className="category-section">
+      <div className="category-header">
+        <span className="category-icon">{meta.icon}</span>
+        <div className="category-info">
+          <h2 className="category-title">
             {meta.label}
-            <span style={{
-              marginLeft: '8px',
-              fontSize: '14px',
-              fontWeight: '400',
-              color: 'var(--fd-muted-foreground)',
-            }}>
-              ({units.length})
-            </span>
+            <span className="category-count">({units.length})</span>
           </h2>
-          <p style={{
-            fontSize: '13px',
-            color: 'var(--fd-muted-foreground)',
-            margin: 0,
-          }}>
-            {meta.description}
-          </p>
+          <p className="category-description">{meta.description}</p>
+        </div>
+        <div className="category-nav">
+          <button
+            type="button"
+            className="category-nav-btn"
+            onClick={() => scroll('left')}
+            aria-label="Previous"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="category-nav-btn"
+            onClick={() => scroll('right')}
+            aria-label="Next"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18l6-6-6-6" />
+            </svg>
+          </button>
         </div>
       </div>
-      <div className="previews-grid">
+      <div className="previews-grid" ref={scrollRef}>
         {units.map((unit) => {
-          // Extract full path name from route (e.g., "/_preview/components/button" -> "components/button")
           const fullName = unit.route.replace(/^\/_preview\//, '')
           return (
             <PreviewCard
@@ -233,13 +238,10 @@ function PreviewsCatalog() {
   return (
     <div className="previews-catalog">
       {/* Header */}
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '8px' }}>
-          Previews
-        </h1>
-        <p style={{ color: 'var(--fd-muted-foreground)', margin: 0 }}>
-          {totalCount} preview{totalCount !== 1 ? 's' : ''} across {grouped.size} categor{grouped.size !== 1 ? 'ies' : 'y'}.
-          Click any preview to open it.
+      <div className="catalog-header">
+        <h1 className="catalog-title">Previews</h1>
+        <p className="catalog-subtitle">
+          {totalCount} preview{totalCount !== 1 ? 's' : ''} across {grouped.size} categor{grouped.size !== 1 ? 'ies' : 'y'}
         </p>
       </div>
 
@@ -250,19 +252,11 @@ function PreviewsCatalog() {
         return <CategorySection key={type} type={type} units={units} />
       })}
 
-      {/* Tip */}
-      <div style={{
-        marginTop: '32px',
-        padding: '14px 16px',
-        backgroundColor: 'var(--fd-muted)',
-        border: '1px solid var(--fd-border)',
-        borderRadius: '10px',
-      }}>
-        <p style={{ margin: 0, fontSize: '14px', color: 'var(--fd-muted-foreground)' }}>
-          <strong style={{ color: 'var(--fd-foreground)' }}>Tip:</strong> Embed any preview in your MDX docs with{' '}
-          <code style={{ backgroundColor: 'var(--fd-accent)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--fd-font-mono)' }}>
-            {'<Preview src="name" />'}
-          </code>
+      {/* Tip - hidden on mobile */}
+      <div className="catalog-tip">
+        <p>
+          <strong>Tip:</strong> Embed any preview in your MDX docs with{' '}
+          <code>{'<Preview src="name" />'}</code>
         </p>
       </div>
     </div>
