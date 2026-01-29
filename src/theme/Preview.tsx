@@ -10,6 +10,7 @@ interface PreviewProps {
   title?: string
   mode?: 'wasm' | 'legacy'
   showHeader?: boolean // Show full header with back button and devtools
+  state?: string | null // Optional state name for screen previews
 }
 
 type DeviceMode = 'mobile' | 'tablet' | 'desktop'
@@ -20,7 +21,7 @@ const DEVICE_WIDTHS: Record<DeviceMode, number | '100%'> = {
   desktop: '100%',
 }
 
-export function Preview({ src, height = 400, title, mode = 'wasm', showHeader = false }: PreviewProps) {
+export function Preview({ src, height = 400, title, mode = 'wasm', showHeader = false, state = null }: PreviewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   // Default to 'mobile' device mode on mobile viewports to match user's actual environment
   const [deviceMode, setDeviceMode] = useState<DeviceMode>(() => {
@@ -49,7 +50,12 @@ export function Preview({ src, height = 400, title, mode = 'wasm', showHeader = 
   const baseUrl = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '')
 
   // URL depends on mode - wasm mode needs src param, legacy uses pre-built files
-  const previewUrl = effectiveMode === 'wasm' ? `/_preview-runtime?src=${src}` : `${baseUrl}/_preview/${src}/`
+  // Include state parameter if provided (for screen previews with multiple states)
+  const stateParam = state ? `&state=${state}` : ''
+  const stateUrlPart = state ? `?state=${state}` : ''
+  const previewUrl = effectiveMode === 'wasm'
+    ? `/_preview-runtime?src=${src}${stateParam}`
+    : `${baseUrl}/_preview/${src}/${stateUrlPart}`
   const displayTitle = title || src
 
   // Calculate current width

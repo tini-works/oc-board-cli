@@ -132,6 +132,44 @@ export async function buildOptimizedPreview(
     const allCss = css + '\n' + userCss
 
     const jsxPath = options.jsxPath || options.vendorPath.replace('runtime.js', 'jsx.js')
+
+    // Canvas styling for showcase presentation
+    const canvasStyles = `
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #fafafa;
+        background-image:
+          radial-gradient(circle at center, #e5e5e5 1px, transparent 1px);
+        background-size: 16px 16px;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #171717;
+          background-image:
+            radial-gradient(circle at center, #262626 1px, transparent 1px);
+        }
+      }
+      #root {
+        background: white;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+        max-width: 100%;
+      }
+      @media (prefers-color-scheme: dark) {
+        #root {
+          background: #1c1c1c;
+          box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        }
+      }
+    `
+
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,7 +177,7 @@ export async function buildOptimizedPreview(
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
   <style>${allCss}</style>
-  <style>body { margin: 0; } #root { min-height: 100vh; }</style>
+  <style>${canvasStyles}</style>
 </head>
 <body>
   <div id="root"></div>
