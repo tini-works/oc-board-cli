@@ -1,0 +1,42 @@
+title: Task Lifecycle
+description: Complete task journey from board to completion
+tags: [flow, tasks, productivity]
+status: stable
+category: flows
+order: 2
+
+steps:
+  - id: board
+    title: View Board
+    description: Browse tasks on the kanban board
+    screen: project-board
+
+  - id: detail
+    title: Open Task
+    description: View task details and comments
+    screen: task-detail
+
+  - id: edit
+    title: Update Task
+    description: Edit task fields and add comments
+    screen: task-detail
+    state: editing
+
+  - id: complete
+    title: Task Complete
+    description: Mark the task as done
+    screen: task-detail
+    state: completed
+
+transitions:
+  - from: board
+    to: detail
+    trigger: click_task
+
+  - from: detail
+    to: edit
+    trigger: click_edit
+
+  - from: edit
+    to: complete
+    trigger: mark_complete

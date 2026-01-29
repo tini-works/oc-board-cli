@@ -1,0 +1,33 @@
+title: Upgrade Flow
+description: Free to Pro upgrade journey
+tags: [flow, billing, upgrade]
+status: stable
+category: flows
+order: 3
+
+steps:
+  - id: trial
+    title: Trial Reminder
+    description: View trial status and plan options
+    screen: pricing
+    state: trial
+
+  - id: select
+    title: Select Plan
+    description: Choose Pro plan to upgrade
+    screen: pricing
+    state: default
+
+  - id: success
+    title: Welcome to Pro
+    description: Upgrade complete
+    screen: upgrade-success
+
+transitions:
+  - from: trial
+    to: select
+    trigger: click_upgrade
+
+  - from: select
+    to: success
+    trigger: confirm_upgrade

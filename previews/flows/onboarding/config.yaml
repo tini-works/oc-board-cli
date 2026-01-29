@@ -1,58 +1,52 @@
 title: User Onboarding
-description: Complete user onboarding flow from signup to dashboard
+description: Complete onboarding from signup to first project
 tags: [flow, onboarding, auth]
 status: stable
 category: flows
 order: 1
 
 steps:
-  - id: welcome
-    title: Welcome Screen
-    description: Initial landing with value proposition
-    screen: login
-
   - id: signup
     title: Create Account
-    description: User enters email and password
-    screen: login
+    description: Enter your details to get started
+    screen: signup
 
-  - id: verify
-    title: Email Verification
-    description: User verifies their email address
-    screen: login
+  - id: welcome
+    title: Welcome to Workflow
+    description: Account created successfully
+    screen: signup
+    state: success
 
-  - id: profile
-    title: Complete Profile
-    description: User adds profile information
-    screen: dashboard
+  - id: invite
+    title: Invite Your Team
+    description: Add team members to collaborate
+    screen: team
+    state: inviting
 
-  - id: tour
-    title: Product Tour
-    description: Interactive walkthrough of key features
-    screen: dashboard
+  - id: first-project
+    title: Create First Project
+    description: Set up your first project board
+    screen: project-board
+    state: empty
 
-  - id: complete
-    title: Ready to Go
-    description: Onboarding complete, user lands on dashboard
+  - id: dashboard
+    title: You're All Set
+    description: Your workspace is ready
     screen: dashboard
 
 transitions:
-  - from: welcome
-    to: signup
-    trigger: click_get_started
-
   - from: signup
-    to: verify
+    to: welcome
     trigger: submit_form
 
-  - from: verify
-    to: profile
-    trigger: email_confirmed
+  - from: welcome
+    to: invite
+    trigger: click_continue
 
-  - from: profile
-    to: tour
-    trigger: submit_profile
+  - from: invite
+    to: first-project
+    trigger: skip_or_send
 
-  - from: tour
-    to: complete
-    trigger: finish_tour
+  - from: first-project
+    to: dashboard
+    trigger: create_project
