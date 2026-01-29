@@ -1,11 +1,73 @@
 import React, { useState, useEffect } from 'react'
 import type { PreviewUnit, AtlasDefinition } from '../../vite/preview-types'
 
+interface AtlasNode {
+  id: string
+  title: string
+  ref?: string
+}
+
+interface AtlasRelationship {
+  from: string
+  to: string
+  type: string
+}
+
+interface AtlasConfig {
+  title?: string
+  description?: string
+  nodes?: AtlasNode[]
+  relationships?: AtlasRelationship[]
+}
+
 interface AtlasPreviewProps {
   unit: PreviewUnit
 }
 
 type ViewMode = 'tree' | 'map' | 'navigate'
+
+// Transform new config format (nodes/relationships) to legacy hierarchy format
+function transformToHierarchy(config: AtlasConfig): AtlasDefinition | null {
+  if (!config.nodes || config.nodes.length === 0) return null
+
+  // Build areas map from nodes
+  const areas: Record<string, { title: string; children?: string[]; description?: string }> = {}
+  for (const node of config.nodes) {
+    areas[node.id] = { title: node.title, children: [] }
+  }
+
+  // Build parent-child relationships from 'contains' type relationships
+  // or infer from relationship patterns
+  const childrenMap: Record<string, string[]> = {}
+  const hasParent = new Set<string>()
+
+  if (config.relationships) {
+    for (const rel of config.relationships) {
+      if (rel.type === 'contains' || rel.type === 'parent') {
+        if (!childrenMap[rel.from]) childrenMap[rel.from] = []
+        childrenMap[rel.from].push(rel.to)
+        hasParent.add(rel.to)
+      }
+    }
+  }
+
+  // Apply children to areas
+  for (const [parentId, children] of Object.entries(childrenMap)) {
+    if (areas[parentId]) {
+      areas[parentId].children = children
+    }
+  }
+
+  // Find root (node with no parent, or first node)
+  const root = config.nodes.find(n => !hasParent.has(n.id))?.id || config.nodes[0]?.id || 'root'
+
+  return {
+    name: config.title || 'Atlas',
+    description: config.description,
+    hierarchy: { root, areas },
+    relationships: config.relationships,
+  }
+}
 
 export function AtlasPreview({ unit }: AtlasPreviewProps) {
   const [atlas, setAtlas] = useState<AtlasDefinition | null>(null)
@@ -13,8 +75,22 @@ export function AtlasPreview({ unit }: AtlasPreviewProps) {
   const [selectedArea, setSelectedArea] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Load atlas definition
+  // Load atlas definition - use config for static builds, fetch for dev
   useEffect(() => {
+    const config = unit.config as AtlasConfig | undefined
+
+    // Try to use embedded config first (for static builds)
+    if (config?.nodes && config.nodes.length > 0) {
+      const transformed = transformToHierarchy(config)
+      if (transformed) {
+        setAtlas(transformed)
+        setSelectedArea(transformed.hierarchy?.root || null)
+        setLoading(false)
+        return
+      }
+    }
+
+    // Fall back to fetching for dev mode
     fetch(`/_preview-config/atlas/${unit.name}`)
       .then(res => res.json())
       .then(data => {
@@ -23,7 +99,7 @@ export function AtlasPreview({ unit }: AtlasPreviewProps) {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [unit.name])
+  }, [unit.name, unit.config])
 
   if (loading) {
     return (
