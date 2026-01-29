@@ -396,6 +396,10 @@ function PreviewCard({ name, title, status }: { name: string; title?: string; st
 }
 
 // Individual preview page - full view with devtools in toolbar
+// Uses specialized components for flow/atlas, generic Preview for components/screens
+import { FlowPreview } from './previews/FlowPreview'
+import { AtlasPreview } from './previews/AtlasPreview'
+
 function PreviewPage() {
   const params = useParams({ strict: false })
   // Splat param captures the full path after /previews/
@@ -405,6 +409,30 @@ function PreviewPage() {
     return <Navigate to="/previews" />
   }
 
+  // Find the preview unit to determine the type
+  const unit = previewUnits.find(u => {
+    // Match by route suffix (e.g., "flows/onboarding" matches route "/_preview/flows/onboarding")
+    return u.route.endsWith(`/${name}`) || `${u.type}s/${u.name}` === name
+  })
+
+  // For flows and atlas, use their specialized components
+  if (unit?.type === 'flow') {
+    return (
+      <div className="preview-detail-page">
+        <FlowPreview unit={unit} />
+      </div>
+    )
+  }
+
+  if (unit?.type === 'atlas') {
+    return (
+      <div className="preview-detail-page">
+        <AtlasPreview unit={unit} />
+      </div>
+    )
+  }
+
+  // For components and screens, use the generic Preview with iframe
   return (
     <div className="preview-detail-page">
       <Preview src={name} height="100%" showHeader />
