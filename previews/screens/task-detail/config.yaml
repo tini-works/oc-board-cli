@@ -1,0 +1,12 @@
+kind: screen
+id: task-detail
+title: Task Detail
+description: Individual task view with comments
+status: stable
+schemaVersion: "2.0"
+tags: [screen, task, detail]
+states:
+  default: { description: "Task detail view" }
+  editing: { description: "Edit mode active" }
+  completed: { description: "Task marked complete" }
+  blocked: { description: "Task is blocked" }
