@@ -274,36 +274,30 @@ import type { PreviewConfig, PreviewMessage } from '../preview-runtime/types'
 
 function PreviewCard({ name, title, status }: { name: string; title?: string; status?: 'draft' | 'stable' | 'deprecated' }) {
   const iframeRef = React.useRef<HTMLIFrameElement>(null)
-  const [isLoaded, setIsLoaded] = React.useState(false)
+  // In production, start as loaded since static files are fast
+  const isDev = import.meta.env?.DEV ?? false
+  const [isLoaded, setIsLoaded] = React.useState(!isDev)
   const [loadError, setLoadError] = React.useState(false)
 
-  // In production, use pre-built static files; in dev, use WASM runtime
-  const isDev = import.meta.env?.DEV ?? false
   const baseUrl = (import.meta.env?.BASE_URL ?? '/').replace(/\/$/, '')
   const previewUrl = isDev ? `/_preview-runtime?src=${name}` : `${baseUrl}/_preview/${name}/`
 
-  // Timeout for loading - show placeholder if too slow
+  // Timeout for loading - only needed in dev mode
   React.useEffect(() => {
+    if (!isDev) return
+
     const timeout = setTimeout(() => {
       if (!isLoaded) {
         setLoadError(true)
       }
-    }, 5000) // 5 second timeout
+    }, 5000)
 
     return () => clearTimeout(timeout)
-  }, [isLoaded])
+  }, [isLoaded, isDev])
 
   // Set up WASM preview communication for thumbnail (dev mode only)
   React.useEffect(() => {
-    if (!isDev) {
-      // In production, just mark as loaded when iframe loads
-      const iframe = iframeRef.current
-      if (iframe) {
-        iframe.onload = () => setIsLoaded(true)
-        iframe.onerror = () => setLoadError(true)
-      }
-      return
-    }
+    if (!isDev) return
 
     const iframe = iframeRef.current
     if (!iframe) return
