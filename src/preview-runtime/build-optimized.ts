@@ -165,7 +165,16 @@ export async function buildOptimizedPreview(
       }
 
       const jsFile = result.outputs.find(f => f.path.endsWith('.js')) || result.outputs[0]
-      const jsCode = jsFile ? await jsFile.text() : ''
+      let jsCode = jsFile ? await jsFile.text() : ''
+
+      // Fix bare specifiers in output — Bun.build externalizes but keeps original specifiers
+      const jsxPath = options.jsxPath || options.vendorPath.replace('runtime.js', 'jsx.js')
+      jsCode = jsCode.replace(/from\s*["']react\/jsx(-dev)?-runtime["']/g, `from"${options.vendorPath}"`)
+      jsCode = jsCode.replace(/from\s*["']react-dom\/client["']/g, `from"${options.vendorPath}"`)
+      jsCode = jsCode.replace(/from\s*["']react-dom["']/g, `from"${options.vendorPath}"`)
+      jsCode = jsCode.replace(/from\s*["']react["']/g, `from"${options.vendorPath}"`)
+      jsCode = jsCode.replace(/from\s*["']@prev\/jsx["']/g, `from"${jsxPath}"`)
+      jsCode = jsCode.replace(/from\s*["']@prev\/components\/[^"']*["']/g, `from"${jsxPath}"`)
 
       let css = ''
       if (config.tailwind) {
@@ -181,8 +190,6 @@ export async function buildOptimizedPreview(
         userCss = userCss.replace(/@import\s*["']tailwindcss["']\s*;?/g, '')
       }
       const allCss = css + '\n' + userCss
-
-      const jsxPath = options.jsxPath || options.vendorPath.replace('runtime.js', 'jsx.js')
 
       // Canvas styling for showcase presentation
       const canvasStyles = `

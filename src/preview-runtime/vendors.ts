@@ -36,6 +36,7 @@ export async function buildVendorBundle(): Promise<VendorBundleResult> {
       import * as ReactDOM from 'react-dom'
       import { createRoot } from 'react-dom/client'
       export { jsx, jsxs, Fragment } from 'react/jsx-runtime'
+      export { jsxDEV } from 'react/jsx-dev-runtime'
       export { React, ReactDOM, createRoot }
       // Re-export React hooks as named exports (preview code imports them directly)
       export {
@@ -235,7 +236,11 @@ export async function buildJsxBundle(vendorPath: string): Promise<VendorBundleRe
         return { success: false, code: '', error: 'No output generated' }
       }
 
-      return { success: true, code: await jsFile.text() }
+      // Fix bare specifiers — Bun.build keeps original import paths for externals
+      let code = await jsFile.text()
+      code = code.replace(/from\s*["']react["']/g, `from"${vendorPath}"`)
+
+      return { success: true, code }
     } finally {
       rmSync(tempDir, { recursive: true, force: true })
     }
