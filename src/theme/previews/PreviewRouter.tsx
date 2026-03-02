@@ -3,7 +3,6 @@ import { previewUnits, getByType } from 'virtual:prev-previews'
 import { ComponentPreview } from './ComponentPreview'
 import { ScreenPreview } from './ScreenPreview'
 import { FlowPreview } from './FlowPreview'
-import { AtlasPreview } from './AtlasPreview'
 import type { PreviewUnit } from '../../content/preview-types'
 
 interface PreviewRouterProps {
@@ -46,8 +45,6 @@ export function PreviewRouter({ type, name }: PreviewRouterProps) {
       return <ScreenPreview unit={unit} />
     case 'flow':
       return <FlowPreview unit={unit} />
-    case 'atlas':
-      return <AtlasPreview unit={unit} />
     default:
       return (
         <div style={{

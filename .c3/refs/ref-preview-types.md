@@ -2,11 +2,11 @@
 
 ## Goal
 
-Establish a clear taxonomy for preview documentation that supports four distinct documentation needs: reusable components, screen states, user flows, and information architecture, each with appropriate configuration schemas and rendering strategies.
+Establish a clear taxonomy for preview documentation that supports three distinct documentation needs: reusable components, screen states, and user flows, each with appropriate configuration schemas and rendering strategies.
 
 ## Pattern
 
-Previews are categorized into four distinct types, each with specific use cases and configuration schemas.
+Previews are categorized into three distinct types, each with specific use cases and configuration schemas.
 
 ## Type Hierarchy
 
@@ -14,8 +14,7 @@ Previews are categorized into four distinct types, each with specific use cases 
 Preview
 ├── Component  (reusable UI units)
 ├── Screen     (full-page views)
-├── Flow       (multi-step journeys)
-└── Atlas      (information architecture)
+└── Flow       (multi-step journeys)
 ```
 
 ## Type Details
@@ -51,16 +50,6 @@ Preview
 
 **Entry File**: `index.yaml`
 
-### Atlas
-**Purpose**: Document information architecture
-
-| Field | Type | Description |
-|-------|------|-------------|
-| nodes | NodeDef[] | IA elements |
-| relationships | RelationshipDef[] | Connections |
-
-**Entry File**: `index.yaml`
-
 ## Directory Structure
 
 ```
@@ -76,11 +65,8 @@ previews/
 │       ├── App.tsx
 │       ├── error.tsx
 │       └── loading.tsx
-├── flows/
-│   └── checkout/
-│       └── index.yaml
-└── atlas/
-    └── navigation/
+└── flows/
+    └── checkout/
         └── index.yaml
 ```
 
@@ -91,7 +77,6 @@ const TYPE_MAP: Record<string, PreviewType> = {
   components: 'component',
   screens: 'screen',
   flows: 'flow',
-  atlas: 'atlas',
 }
 ```
 
@@ -105,4 +90,4 @@ const TYPE_MAP: Record<string, PreviewType> = {
 
 - Folder name determines type (singular form in code)
 - Config.yaml optional for components/screens (defaults inferred)
-- Config.yaml required for flows/atlas
+- Config.yaml required for flows

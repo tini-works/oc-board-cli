@@ -39,7 +39,6 @@ export interface ValidationResult {
     components: { total: number; valid: number; invalid: number }
     screens: { total: number; valid: number; invalid: number }
     flows: { total: number; valid: number; invalid: number }
-    atlas: { total: number; valid: number; invalid: number }
   }
   errors: ValidationError[]
   warnings: ValidationWarning[]
@@ -58,7 +57,7 @@ export interface ValidationWarning {
   message: string
 }
 
-const PREVIEW_TYPES = ['components', 'screens', 'flows', 'atlas'] as const
+const PREVIEW_TYPES = ['components', 'screens', 'flows'] as const
 type PreviewTypeDir = typeof PREVIEW_TYPES[number]
 
 /**
@@ -176,7 +175,7 @@ function buildValidationContext(previewRoot: string): {
       // Create working config with injected values for internal use
       // Keep original for validation (v2 should fail without kind)
       const config = { ...originalConfig }
-      const singularType = type.replace(/s$/, '') as 'component' | 'screen' | 'flow' | 'atlas'
+      const singularType = type.replace(/s$/, '') as 'component' | 'screen' | 'flow'
 
       // Inject id and kind only in working config (not validated config)
       if (!config.id) config.id = unit.id
@@ -223,7 +222,6 @@ export async function validate(
         components: { total: 0, valid: 0, invalid: 0 },
         screens: { total: 0, valid: 0, invalid: 0 },
         flows: { total: 0, valid: 0, invalid: 0 },
-        atlas: { total: 0, valid: 0, invalid: 0 },
       },
       errors: [{
         file: rootDir,
@@ -243,7 +241,6 @@ export async function validate(
       components: { total: 0, valid: 0, invalid: 0 },
       screens: { total: 0, valid: 0, invalid: 0 },
       flows: { total: 0, valid: 0, invalid: 0 },
-      atlas: { total: 0, valid: 0, invalid: 0 },
     },
     errors: [],
     warnings: [],

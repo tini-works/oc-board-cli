@@ -1,7 +1,7 @@
 // src/validators/semantic-validator.ts
 // Semantic validation for cross-file references and business rules
 
-import type { PreviewConfig, FlowConfig, AtlasConfig, ScreenConfig, Template, Slots } from '../renderers/types'
+import type { PreviewConfig, FlowConfig, ScreenConfig, Template, Slots } from '../renderers/types'
 import { listAdapters } from '../renderers/registry'
 import { validateTemplate, validateSlots, extractRefs, extractSlotNames } from '../primitives'
 
@@ -28,7 +28,6 @@ export type SemanticErrorCode =
   | 'INVALID_REF'
   | 'INVALID_STATE_REF'
   | 'INVALID_STEP_REF'
-  | 'INVALID_NODE_REF'
   | 'CIRCULAR_DEPENDENCY'
   | 'UNKNOWN_RENDERER'
   | 'INVALID_TEMPLATE'
@@ -47,7 +46,6 @@ export interface ValidationContext {
     components: Set<string>
     screens: Set<string>
     flows: Set<string>
-    atlas: Set<string>
   }
   /** Map of screen states by screen ID */
   screenStates: Map<string, Set<string>>
@@ -58,7 +56,7 @@ export interface ValidationContext {
  */
 function parseRef(ref: string | { ref: string }): { type: string; id: string } | null {
   const refStr = typeof ref === 'string' ? ref : ref.ref
-  const match = refStr.match(/^(screens|components|flows|atlas)\/([a-z0-9-]+)$/)
+  const match = refStr.match(/^(screens|components|flows)\/([a-z0-9-]+)$/)
   if (!match) return null
   return { type: match[1], id: match[2] }
 }
@@ -235,70 +233,6 @@ function validateFlow(
       errors.push({
         path: `${configPath}/transitions`,
         message: `Circular dependency detected in flow transitions: ${cycle.join(' → ')}`,
-        code: 'CIRCULAR_DEPENDENCY',
-      })
-    }
-  }
-
-  return { errors, warnings }
-}
-
-/**
- * Validate an atlas config's semantic rules
- */
-function validateAtlas(
-  config: AtlasConfig,
-  context: ValidationContext,
-  configPath: string
-): { errors: SemanticValidationError[]; warnings: SemanticValidationWarning[] } {
-  const errors: SemanticValidationError[] = []
-  const warnings: SemanticValidationWarning[] = []
-
-  if (!config.nodes || config.nodes.length === 0) {
-    return { errors, warnings }
-  }
-
-  // Build set of node IDs
-  const nodeIds = new Set(config.nodes.map(n => n.id))
-
-  // Validate each node's optional ref
-  for (let i = 0; i < config.nodes.length; i++) {
-    const node = config.nodes[i]
-    if (node.ref) {
-      const result = validateRef(node.ref, context, `${configPath}/nodes/${i}/ref`)
-      errors.push(...result.errors)
-      warnings.push(...result.warnings)
-    }
-  }
-
-  // Validate relationships reference existing node IDs
-  if (config.relationships) {
-    for (let i = 0; i < config.relationships.length; i++) {
-      const rel = config.relationships[i]
-
-      if (!nodeIds.has(rel.from)) {
-        errors.push({
-          path: `${configPath}/relationships/${i}/from`,
-          message: `Relationship "from" references unknown node "${rel.from}". Available nodes: ${Array.from(nodeIds).join(', ')}`,
-          code: 'INVALID_NODE_REF',
-        })
-      }
-
-      if (!nodeIds.has(rel.to)) {
-        errors.push({
-          path: `${configPath}/relationships/${i}/to`,
-          message: `Relationship "to" references unknown node "${rel.to}". Available nodes: ${Array.from(nodeIds).join(', ')}`,
-          code: 'INVALID_NODE_REF',
-        })
-      }
-    }
-
-    // Detect circular dependencies in relationships
-    const cycle = detectCycle(config.relationships, nodeIds)
-    if (cycle) {
-      errors.push({
-        path: `${configPath}/relationships`,
-        message: `Circular dependency detected in atlas relationships: ${cycle.join(' → ')}`,
         code: 'CIRCULAR_DEPENDENCY',
       })
     }
@@ -587,13 +521,6 @@ export function validateSemantics(
     warnings.push(...result.warnings)
   }
 
-  // Atlas-specific validation
-  if (config.kind === 'atlas') {
-    const result = validateAtlas(config as AtlasConfig, context, configPath)
-    errors.push(...result.errors)
-    warnings.push(...result.warnings)
-  }
-
   return {
     valid: errors.length === 0,
     errors,
@@ -611,7 +538,6 @@ export function createValidationContext(rootDir: string): ValidationContext {
       components: new Set(),
       screens: new Set(),
       flows: new Set(),
-      atlas: new Set(),
     },
     screenStates: new Map(),
   }
@@ -622,7 +548,7 @@ export function createValidationContext(rootDir: string): ValidationContext {
  */
 export function registerPreviewUnit(
   context: ValidationContext,
-  type: 'component' | 'screen' | 'flow' | 'atlas',
+  type: 'component' | 'screen' | 'flow',
   id: string,
   states?: string[]
 ): void {

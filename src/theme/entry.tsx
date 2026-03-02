@@ -110,15 +110,10 @@ const CATEGORY_META: Record<PreviewType, { label: string; icon: string; descript
     icon: '⇢',
     description: 'Multi-step user journeys',
   },
-  atlas: {
-    label: 'Atlas',
-    icon: '◎',
-    description: 'Information architecture maps',
-  },
 }
 
 // Category display order
-const CATEGORY_ORDER: PreviewType[] = ['component', 'screen', 'flow', 'atlas']
+const CATEGORY_ORDER: PreviewType[] = ['component', 'screen', 'flow']
 
 // Group previews by type
 function groupByType(units: PreviewUnit[]): Map<PreviewType, PreviewUnit[]> {
@@ -256,8 +251,8 @@ function PreviewsCatalog() {
 import type { PreviewConfig, PreviewMessage } from '../preview-runtime/types'
 
 function PreviewCard({ name, title, status, type }: { name: string; title?: string; status?: 'draft' | 'stable' | 'deprecated'; type?: PreviewType }) {
-  // Config-only types (flow/atlas) have no JS entry point — show a styled placeholder instead of iframe
-  const isConfigOnly = type === 'flow' || type === 'atlas'
+  // Config-only types (flow) have no JS entry point — show a styled placeholder instead of iframe
+  const isConfigOnly = type === 'flow'
 
   const iframeRef = React.useRef<HTMLIFrameElement>(null)
   // In production, start as loaded since static files are fast
@@ -329,8 +324,8 @@ function PreviewCard({ name, title, status, type }: { name: string; title?: stri
         {isConfigOnly ? (
           /* Config-only types: styled placeholder with category icon */
           <div className="preview-card-placeholder" style={{ opacity: 1 }}>
-            <span style={{ fontSize: '32px' }}>{type === 'flow' ? '⇢' : '◎'}</span>
-            <span>{type === 'flow' ? 'Flow' : 'Atlas'}</span>
+            <span style={{ fontSize: '32px' }}>⇢</span>
+            <span>Flow</span>
           </div>
         ) : (
           <>
@@ -386,9 +381,8 @@ function PreviewCard({ name, title, status, type }: { name: string; title?: stri
 }
 
 // Individual preview page - full view with devtools in toolbar
-// Uses specialized components for flow/atlas, generic Preview for components/screens
+// Uses specialized component for flow, generic Preview for components/screens
 import { FlowPreview } from './previews/FlowPreview'
-import { AtlasPreview } from './previews/AtlasPreview'
 
 // Standalone preview embed (for iframe thumbnails in production)
 // Renders just the preview content without Layout wrapper
@@ -401,7 +395,7 @@ function PreviewEmbed() {
   const baseUrl = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')
 
   // Parse type from name (e.g., "flows/checkout" -> type="flow", unitName="checkout")
-  const match = name.match(/^(components|screens|flows|atlas)\/(.+)$/)
+  const match = name.match(/^(components|screens|flows)\/(.+)$/)
   if (!match) {
     // Fallback for legacy preview paths without type prefix
     const previewUrl = isDev ? `/_preview-runtime?src=${name}` : `${baseUrl}/_preview/${name}/`
@@ -415,7 +409,7 @@ function PreviewEmbed() {
   }
 
   const [, typeFolder, unitName] = match
-  const type = typeFolder === 'flows' ? 'flow' : typeFolder === 'atlas' ? 'atlas' : typeFolder.slice(0, -1)
+  const type = typeFolder === 'flows' ? 'flow' : typeFolder.slice(0, -1)
 
   // Find the preview unit
   const unit = previewUnits.find(u => u.type === type && u.name === unitName)
@@ -428,13 +422,9 @@ function PreviewEmbed() {
     )
   }
 
-  // For flows and atlas, render the specialized component
+  // For flows, render the specialized component
   if (unit.type === 'flow') {
     return <FlowPreview unit={unit} />
-  }
-
-  if (unit.type === 'atlas') {
-    return <AtlasPreview unit={unit} />
   }
 
   // For components and screens, use iframe to load static HTML
@@ -464,19 +454,11 @@ function PreviewPage() {
     return u.route.endsWith(`/${name}`) || `${u.type}s/${u.name}` === name
   })
 
-  // For flows and atlas, use their specialized components
+  // For flows, use the specialized component
   if (unit?.type === 'flow') {
     return (
       <div className="preview-detail-page">
         <FlowPreview unit={unit} />
-      </div>
-    )
-  }
-
-  if (unit?.type === 'atlas') {
-    return (
-      <div className="preview-detail-page">
-        <AtlasPreview unit={unit} />
       </div>
     )
   }

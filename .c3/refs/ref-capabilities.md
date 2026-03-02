@@ -22,11 +22,10 @@ Verified: 2026-02-27 (pre-migration baseline)
 - [x] `/previews/screens/login` — returns 200
 
 ## 4. Previews Catalog (`/previews`)
-- [x] Page loads with "Previews" heading, "4 previews across 4 categories"
+- [x] Page loads with "Previews" heading
 - [x] Shows "Components" section with Button card
 - [x] Shows "Screens" section with Login card
 - [x] Shows "Flows" section with Checkout Flow card
-- [x] Shows "Atlas" section with App Information Architecture card
 
 ## 5. Component Preview (`/previews/components/button`)
 - [x] Page loads, header shows "components/button" with bundle time (6ms)
@@ -42,15 +41,9 @@ Verified: 2026-02-27 (pre-migration baseline)
 - [x] Page loads with "Checkout Flow" title, 3 step dots, nav arrows
 - [ ] Step iframe shows "No preview source specified" — flow->screen ref not resolving
 
-## 8. Atlas Preview (`/previews/atlas/app`)
-- [x] Page loads with title + description
-- [x] Tree view: Home -> Authentication (Login, Register), Products (Catalog, Product Detail)
-- [x] Relationships section: 8 relationship pills rendered correctly
-- [x] View mode tabs: Tree, Map, Navigate
-
-## 9. Dev-mode bundle endpoints
+## 8. Dev-mode bundle endpoints
 - [x] `/_preview-bundle/components/button` — 200, application/javascript, 341 bytes
 - [x] `/_preview-config/components/button` — 200, JSON with files/entry/tailwind config
 
-## 10. Dark Mode
+## 9. Dark Mode
 - [x] Clicking theme toggle changes background to dark, text to light

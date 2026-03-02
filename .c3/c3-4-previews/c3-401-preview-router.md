@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Routes preview requests to the appropriate type-specific viewer based on preview type (component, screen, flow, atlas).
+Routes preview requests to the appropriate type-specific viewer based on preview type (component, screen, flow).
 
 ## Location
 
@@ -19,7 +19,7 @@ Routes preview requests to the appropriate type-specific viewer based on preview
 
 ```typescript
 interface PreviewRouterProps {
-  type: string   // 'component' | 'screen' | 'flow' | 'atlas'
+  type: string   // 'component' | 'screen' | 'flow'
   name: string   // Preview name (folder name)
 }
 ```
@@ -31,7 +31,6 @@ switch (unit.type) {
   case 'component': return <ComponentPreview unit={unit} />
   case 'screen':    return <ScreenPreview unit={unit} />
   case 'flow':      return <FlowPreview unit={unit} />
-  case 'atlas':     return <AtlasPreview unit={unit} />
 }
 ```
 
@@ -55,7 +54,6 @@ Groups previews by type and renders as clickable cards:
 - **Internal:** [c3-402-component-viewer](./c3-402-component-viewer.md)
 - **Internal:** [c3-403-screen-viewer](./c3-403-screen-viewer.md)
 - **Internal:** [c3-404-flow-viewer](./c3-404-flow-viewer.md)
-- **Internal:** [c3-405-atlas-viewer](./c3-405-atlas-viewer.md)
 
 ## Data Flow
 
@@ -76,7 +74,6 @@ Type-specific viewer
 - `src/theme/previews/ComponentPreview.tsx` - Component viewer integration
 - `src/theme/previews/ScreenPreview.tsx` - Screen viewer integration
 - `src/theme/previews/FlowPreview.tsx` - Flow viewer integration
-- `src/theme/previews/AtlasPreview.tsx` - Atlas viewer integration
 
 ## Related Refs
 

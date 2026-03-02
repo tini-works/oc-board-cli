@@ -1,7 +1,7 @@
 // src/content/config-parser.test.ts
 import { test, expect, describe, beforeAll } from 'bun:test'
 import { join } from 'path'
-import { parsePreviewConfig, parseFlowConfig, parseFlowDefinition, parseAtlasDefinition } from './config-parser'
+import { parsePreviewConfig, parseFlowConfig, parseFlowDefinition } from './config-parser'
 import { useTempDirPerSuite, writeFiles } from '../../test/utils'
 
 const getTempDir = useTempDirPerSuite('prev-config-parser-test-')
@@ -11,7 +11,6 @@ beforeAll(async () => {
     'valid.yaml': 'tags: [core]\ncategory: inputs\nstatus: stable\ntitle: Button',
     'invalid.yaml': 'status: unknown',
     'flow.yaml': 'name: Onboarding\nsteps:\n  - screen: login\n  - screen: dashboard',
-    'atlas.yaml': 'name: App\nhierarchy:\n  root: home\n  areas:\n    home:\n      title: Home',
     // Flow configs with regions
     'flow-regions-simple.yaml': [
       'title: Signup Flow',
@@ -90,12 +89,6 @@ test('parseFlowDefinition parses flow config', async () => {
   const flow = await parseFlowDefinition(join(getTempDir(), 'flow.yaml'))
   expect(flow?.name).toBe('Onboarding')
   expect(flow?.steps).toHaveLength(2)
-})
-
-test('parseAtlasDefinition parses atlas config', async () => {
-  const atlas = await parseAtlasDefinition(join(getTempDir(), 'atlas.yaml'))
-  expect(atlas?.name).toBe('App')
-  expect(atlas?.hierarchy.root).toBe('home')
 })
 
 // --- Cycle 1.2: Zod schema for regions/outcomes ---

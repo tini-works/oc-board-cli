@@ -7,7 +7,7 @@ Interactive preview system for showcasing UI components, screens, user flows, an
 ## Responsibilities
 
 - Display preview catalog with filtering and search
-- Render type-specific viewers (component, screen, flow, atlas)
+- Render type-specific viewers (component, screen, flow)
 - Support multiple render adapters (React, HTML)
 - Handle preview state management and navigation
 - Compile preview bundles with Tailwind CSS
@@ -31,7 +31,6 @@ Interactive preview system for showcasing UI components, screens, user flows, an
 | Component | Reusable UI units | props, slots, templates |
 | Screen | Full-page views | states (multiple variants) |
 | Flow | Multi-step journeys | steps, transitions |
-| Atlas | Information architecture | nodes, relationships |
 
 ## Components
 
@@ -41,7 +40,6 @@ Interactive preview system for showcasing UI components, screens, user flows, an
 | c3-402 | [component-viewer](./c3-402-component-viewer.md) | Component preview with props panel |
 | c3-403 | [screen-viewer](./c3-403-screen-viewer.md) | Screen states with viewport toggle |
 | c3-404 | [flow-viewer](./c3-404-flow-viewer.md) | Step navigation and transitions |
-| c3-405 | [atlas-viewer](./c3-405-atlas-viewer.md) | Node graph with cycle detection |
 | c3-406 | [render-adapter](./c3-406-render-adapter.md) | Pluggable rendering backends |
 
 ## Preview Discovery
@@ -57,11 +55,8 @@ previews/
 │   └── dashboard/
 │       ├── config.yaml
 │       └── App.tsx
-├── flows/
-│   └── checkout/
-│       └── config.yaml
-└── atlas/
-    └── navigation/
+└── flows/
+    └── checkout/
         └── config.yaml
 ```
 
@@ -81,7 +76,7 @@ previews/ directory
       ↓
  Preview Router (type dispatch)
       ↓
- Type Viewer (component/screen/flow/atlas)
+ Type Viewer (component/screen/flow)
       ↓
  Render Adapter (React/HTML)
       ↓

@@ -144,7 +144,7 @@ async function buildPreviewHtmlFiles(rootDir: string, distDir: string) {
   // Count total builds (skip config-only types)
   let totalBuilds = 0
   for (const unit of units) {
-    if (unit.type === 'flow' || unit.type === 'atlas') continue
+    if (unit.type === 'flow') continue
     totalBuilds++
     if (unit.files.states) totalBuilds += unit.files.states.length
   }
@@ -172,9 +172,9 @@ async function buildPreviewHtmlFiles(rootDir: string, distDir: string) {
   writeFileSync(path.join(vendorsDir, 'jsx.js'), jsxResult.code)
   console.log('    ✓ _vendors/jsx.js')
 
-  // Build each preview unit (skip config-only types like flow/atlas)
+  // Build each preview unit (skip config-only types like flow)
   for (const unit of units) {
-    if (unit.type === 'flow' || unit.type === 'atlas') continue
+    if (unit.type === 'flow') continue
     const previewDir = path.join(previewsDir, unit.type + 's', unit.name)
     const previewPath = `${unit.type}s/${unit.name}`
     const depth = previewPath.split('/').length

@@ -52,7 +52,7 @@ const defaultConfig: PrevConfig = {
 ## Preview Config Schema (v2)
 
 ```yaml
-kind: screen           # Required: component | screen | flow | atlas
+kind: screen           # Required: component | screen | flow
 id: login             # Required: unique identifier
 schemaVersion: "2.0"  # Required: schema version
 title: Login Screen   # Optional: display title
@@ -67,10 +67,6 @@ states:               # For screens
 steps:                # For flows
   - id: start
     title: "Begin"
-
-nodes:                # For atlas
-  - id: home
-    title: "Home"
 ```
 
 ## Validation

@@ -6,7 +6,7 @@ import type { JSONSchema7 } from 'json-schema'
 /**
  * Preview type discriminator
  */
-export type PreviewKind = 'component' | 'screen' | 'flow' | 'atlas'
+export type PreviewKind = 'component' | 'screen' | 'flow'
 
 /**
  * Reference to another preview unit
@@ -114,36 +114,9 @@ export interface FlowConfig extends BaseConfig {
 }
 
 /**
- * Atlas node definition
- */
-export interface AtlasNode {
-  id: string
-  title: string
-  ref?: PreviewRef
-}
-
-/**
- * Atlas relationship definition
- */
-export interface AtlasRelationship {
-  from: string
-  to: string
-  type: string
-}
-
-/**
- * Atlas config - defines information architecture
- */
-export interface AtlasConfig extends BaseConfig {
-  kind: 'atlas'
-  nodes: AtlasNode[]
-  relationships?: AtlasRelationship[]
-}
-
-/**
  * Union of all config types
  */
-export type PreviewConfig = ComponentConfig | ScreenConfig | FlowConfig | AtlasConfig
+export type PreviewConfig = ComponentConfig | ScreenConfig | FlowConfig
 
 /**
  * Output from rendering a preview
@@ -199,11 +172,6 @@ export interface RendererAdapter {
    * Render the current step's screen with navigation UI (prev/next)
    */
   renderFlow(config: FlowConfig, step?: string): RenderOutput
-
-  /**
-   * Render a graph visualization with node thumbnails
-   */
-  renderAtlas(config: AtlasConfig): RenderOutput
 
   /**
    * Whether this adapter supports Hot Module Replacement

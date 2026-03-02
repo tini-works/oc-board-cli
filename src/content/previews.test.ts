@@ -15,8 +15,6 @@ beforeAll(async () => {
     'previews/screens/login/config.yaml': 'title: Login\nstatus: stable',
     'previews/flows/onboarding/index.yaml': 'name: Onboarding\nsteps: []',
     'previews/flows/onboarding/config.yaml': 'title: Onboarding\nstatus: stable',
-    'previews/atlas/app/index.yaml': 'name: App\nhierarchy:\n  root: home\n  areas:\n    home:\n      title: Home',
-    'previews/atlas/app/config.yaml': 'title: App Atlas\nstatus: stable',
   })
 })
 
@@ -26,7 +24,7 @@ test('returns empty for nonexistent directory', async () => {
 
 test('scans all preview types with config and routes', async () => {
   const units = await scanPreviewUnits(getTempDir())
-  expect(units).toHaveLength(4)
+  expect(units).toHaveLength(3)
 
   // Component: type, schema, config, route
   const button = units.find(u => u.name === 'button')!
@@ -41,7 +39,6 @@ test('scans all preview types with config and routes', async () => {
   expect(login.files.states).toEqual(['error.tsx'])
   expect(login.route).toBe('/_preview/screens/login')
 
-  // Flow and Atlas: type detection
+  // Flow: type detection
   expect(units.find(u => u.name === 'onboarding')?.type).toBe('flow')
-  expect(units.find(u => u.name === 'app')?.type).toBe('atlas')
 })

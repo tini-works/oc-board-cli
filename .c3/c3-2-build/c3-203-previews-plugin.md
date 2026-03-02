@@ -10,7 +10,7 @@ Content scanner that discovers preview components and generates virtual modules 
 
 ## Responsibilities
 
-- Scan `previews/` directory for components, screens, flows, atlas
+- Scan `previews/` directory for components, screens, flows
 - Parse config.yaml for each preview unit
 - Generate virtual module with preview catalog
 - Build standalone HTML files during production build
@@ -38,7 +38,6 @@ export function getByStatus(status: string): PreviewUnit[]
 | component | `previews/components/` | `App.tsx`, `index.tsx` |
 | screen | `previews/screens/` | `App.tsx`, `index.tsx` |
 | flow | `previews/flows/` | `index.yaml` |
-| atlas | `previews/atlas/` | `index.yaml` |
 
 ## Production Build
 

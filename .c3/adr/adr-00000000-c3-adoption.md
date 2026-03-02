@@ -123,7 +123,6 @@ DISCOVER everything first. Don't document yet.
 | 4 | 402 | component-viewer | feature | Display component previews | Component preview viewer |
 | 4 | 403 | screen-viewer | feature | Display screen previews | Screen preview viewer |
 | 4 | 404 | flow-viewer | feature | Display flow previews | Flow preview viewer |
-| 4 | 405 | atlas-viewer | feature | Display atlas previews | Atlas preview viewer |
 | 4 | 406 | render-adapter | foundation | Adapt renderers for previews | Renderer adaptation |
 | 5 | 501 | vnode | foundation | Virtual node representation | VNode structure |
 | 5 | 502 | jsx-runtime | foundation | JSX transformation runtime | JSX runtime |
@@ -235,7 +234,6 @@ Fill in each container with its components.
 | Internal | c3-402 | component-viewer | feature | [x] |
 | Internal | c3-403 | screen-viewer | feature | [x] |
 | Internal | c3-404 | flow-viewer | feature | [x] |
-| Internal | c3-405 | atlas-viewer | feature | [x] |
 | Internal | c3-406 | render-adapter | foundation | [x] |
 
 ### Container: c3-5-jsx

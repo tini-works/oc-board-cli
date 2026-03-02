@@ -60,7 +60,6 @@
 | c3-402 | [component-viewer](./c3-4-previews/c3-402-component-viewer.md) | feature | Component preview viewer |
 | c3-403 | [screen-viewer](./c3-4-previews/c3-403-screen-viewer.md) | feature | Screen preview viewer |
 | c3-404 | [flow-viewer](./c3-4-previews/c3-404-flow-viewer.md) | feature | Flow preview viewer |
-| c3-405 | [atlas-viewer](./c3-4-previews/c3-405-atlas-viewer.md) | feature | Atlas preview viewer |
 | c3-406 | [render-adapter](./c3-4-previews/c3-406-render-adapter.md) | foundation | Renderer adaptation |
 
 ### c3-5: JSX

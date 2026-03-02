@@ -100,10 +100,6 @@ export async function renderPreview(
         output = adapter.renderFlow(config, options.step)
         break
 
-      case 'atlas':
-        output = adapter.renderAtlas(config)
-        break
-
       default:
         return {
           success: false,

@@ -7,7 +7,6 @@ import type {
   ComponentConfig,
   ScreenConfig,
   FlowConfig,
-  AtlasConfig,
   RenderOutput,
 } from '../types'
 import layoutSchema from './layout.schema.json'
@@ -59,14 +58,6 @@ export const HTMLAdapter: RendererAdapter = {
     const currentStep = step ? config.steps?.find(s => s.id === step) : config.steps?.[0]
     return {
       html: `<div data-preview-flow="${config.id}" data-step="${currentStep?.id ?? 'unknown'}"><!-- HTML flow: ${config.title} --></div>`,
-    }
-  },
-
-  renderAtlas(config: AtlasConfig): RenderOutput {
-    // TODO: Implement HTML atlas rendering
-    // Render static graph visualization
-    return {
-      html: `<div data-preview-atlas="${config.id}"><!-- HTML atlas: ${config.title} --></div>`,
     }
   },
 

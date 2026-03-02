@@ -2,14 +2,14 @@
 import { z } from 'zod'
 
 // Preview content types (kind discriminator)
-export type PreviewType = 'component' | 'screen' | 'flow' | 'atlas'
+export type PreviewType = 'component' | 'screen' | 'flow'
 
 // Reference format - string shorthand or object with state/options
 // Accepts both full paths (screens/login) and short names (login)
 const refSchema = z.union([
-  z.string().regex(/^([a-z0-9-]+|(screens|components|flows|atlas)\/[a-z0-9-]+)$/),
+  z.string().regex(/^([a-z0-9-]+|(screens|components|flows)\/[a-z0-9-]+)$/),
   z.object({
-    ref: z.string().regex(/^([a-z0-9-]+|(screens|components|flows|atlas)\/[a-z0-9-]+)$/),
+    ref: z.string().regex(/^([a-z0-9-]+|(screens|components|flows)\/[a-z0-9-]+)$/),
     state: z.string().optional(),
     options: z.record(z.string(), z.unknown()).optional(),
   })
@@ -17,7 +17,7 @@ const refSchema = z.union([
 
 // Base config schema shared by all types
 const baseConfigSchema = z.object({
-  kind: z.enum(['component', 'screen', 'flow', 'atlas']).optional(),
+  kind: z.enum(['component', 'screen', 'flow']).optional(),
   id: z.string().regex(/^[a-z0-9-]+$/).optional(),
   title: z.string(),
   description: z.string().optional(),
@@ -107,33 +107,11 @@ export const flowConfigSchema = baseConfigSchema.extend({
   transitions: z.array(flowTransitionSchema).optional(),
 })
 
-// Atlas node schema
-const atlasNodeSchema = z.object({
-  id: z.string().regex(/^[a-z0-9-]+$/),
-  title: z.string(),
-  ref: refSchema.optional(),
-})
-
-// Atlas relationship schema
-const atlasRelationshipSchema = z.object({
-  from: z.string(),
-  to: z.string(),
-  type: z.string(),
-})
-
-// Atlas-specific schema
-export const atlasConfigSchema = baseConfigSchema.extend({
-  kind: z.literal('atlas').optional(),
-  nodes: z.array(atlasNodeSchema).optional(),
-  relationships: z.array(atlasRelationshipSchema).optional(),
-})
-
 // Union of all config schemas (for v1 transitional validation)
 export const configSchema = z.union([
   componentConfigSchema,
   screenConfigSchema,
   flowConfigSchema,
-  atlasConfigSchema,
   baseConfigSchema, // fallback for untyped configs
 ])
 
@@ -141,7 +119,6 @@ export type PreviewConfig = z.infer<typeof configSchema>
 export type ComponentConfig = z.infer<typeof componentConfigSchema>
 export type ScreenConfig = z.infer<typeof screenConfigSchema>
 export type FlowConfig = z.infer<typeof flowConfigSchema>
-export type AtlasConfig = z.infer<typeof atlasConfigSchema>
 export type RegionGoto = z.infer<typeof regionGotoSchema>
 export type RegionOutcomes = z.infer<typeof regionOutcomesSchema>
 export type Region = z.infer<typeof regionSchema>
@@ -181,24 +158,3 @@ export interface FlowDefinition {
   steps: LegacyFlowStep[]
 }
 
-// Atlas area definition (legacy format)
-export interface AtlasArea {
-  title: string
-  description?: string
-  parent?: string
-  children?: string[]
-  access?: string
-}
-
-// Atlas definition (legacy format from index.yaml)
-export interface AtlasDefinition {
-  name: string
-  description?: string
-  hierarchy: {
-    root: string
-    areas: Record<string, AtlasArea>
-  }
-  routes?: Record<string, { area: string; screen: string; guard?: string }>
-  navigation?: Record<string, Array<{ area?: string; icon?: string; action?: string }>>
-  relationships?: Array<{ from: string; to: string; type: string }>
-}

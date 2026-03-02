@@ -36,12 +36,9 @@ export type {
   ComponentConfig,
   ScreenConfig,
   FlowConfig,
-  AtlasConfig,
   PreviewConfig,
   FlowStep,
   FlowTransition,
-  AtlasNode,
-  AtlasRelationship,
 } from './types'
 
 // Adapters (lazy loaded via registry)

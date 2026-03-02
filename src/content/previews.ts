@@ -7,12 +7,11 @@ import type { PreviewUnit, PreviewType } from './preview-types'
 import { parsePreviewConfig } from './config-parser'
 
 // Type folder names and their corresponding PreviewType
-const PREVIEW_TYPE_FOLDERS = ['components', 'screens', 'flows', 'atlas'] as const
+const PREVIEW_TYPE_FOLDERS = ['components', 'screens', 'flows'] as const
 const TYPE_MAP: Record<string, PreviewType> = {
   components: 'component',
   screens: 'screen',
   flows: 'flow',
-  atlas: 'atlas',
 }
 
 /**
@@ -152,8 +151,8 @@ async function detectUnitFiles(
   // Find index file based on type
   let index: string | undefined
 
-  if (type === 'flow' || type === 'atlas') {
-    // Flow and Atlas are defined by their config.yaml (no separate index file)
+  if (type === 'flow') {
+    // Flow is defined by its config.yaml (no separate index file)
     index = allFiles.find(f => f === 'config.yaml' || f === 'config.yml')
   } else {
     // Component or Screen - look for TSX/JSX/TS/JS or HTML

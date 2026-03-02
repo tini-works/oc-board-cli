@@ -4,13 +4,10 @@ import * as yaml from 'js-yaml'
 import {
   configSchema,
   flowConfigSchema,
-  atlasConfigSchema,
   type PreviewConfig,
   type PreviewType,
   type FlowDefinition,
-  type AtlasDefinition,
   type FlowConfig,
-  type AtlasConfig,
 } from './preview-types'
 
 export interface ParseOptions {
@@ -143,58 +140,6 @@ export async function parseFlowConfig(
   }
 }
 
-/**
- * Parse an atlas config from config.yaml (new format)
- * Falls back to legacy index.yaml format for backwards compatibility
- */
-export async function parseAtlasConfig(
-  configPath: string,
-  options: ParseOptions = {}
-): Promise<ParseResult<AtlasConfig>> {
-  const result: ParseResult<AtlasConfig> = {
-    data: null,
-    errors: [],
-    warnings: [],
-  }
-
-  if (!existsSync(configPath)) {
-    result.errors.push(`Config file not found: ${configPath}`)
-    return result
-  }
-
-  try {
-    const content = readFileSync(configPath, 'utf-8')
-    let parsed = yaml.load(content) as Record<string, unknown>
-
-    if (!parsed || typeof parsed !== 'object') {
-      result.errors.push(`Invalid YAML in ${configPath}`)
-      return result
-    }
-
-    // Inject id and kind if missing
-    if (options.injectId && options.folderName && !parsed.id) {
-      parsed = { ...parsed, id: options.folderName }
-    }
-    if (options.injectKind && !parsed.kind) {
-      parsed = { ...parsed, kind: 'atlas' }
-      result.warnings.push(`Config missing 'kind' field, inferred as 'atlas'`)
-    }
-
-    const parseResult = atlasConfigSchema.safeParse(parsed)
-
-    if (parseResult.success) {
-      result.data = parseResult.data
-    } else {
-      result.errors.push(`Invalid atlas config: ${parseResult.error.message}`)
-    }
-
-    return result
-  } catch (err) {
-    result.errors.push(`Error parsing atlas config: ${err}`)
-    return result
-  }
-}
-
 // ============================================================================
 // Legacy parsers for backwards compatibility with index.yaml format
 // These will be deprecated in v2
@@ -225,27 +170,3 @@ export async function parseFlowDefinition(filePath: string): Promise<FlowDefinit
   }
 }
 
-/**
- * Parse an atlas index.yaml file (legacy format)
- * @deprecated Use parseAtlasConfig with config.yaml instead
- */
-export async function parseAtlasDefinition(filePath: string): Promise<AtlasDefinition | null> {
-  if (!existsSync(filePath)) {
-    return null
-  }
-
-  try {
-    const content = readFileSync(filePath, 'utf-8')
-    const parsed = yaml.load(content) as AtlasDefinition
-
-    // Basic validation
-    if (!parsed.name || !parsed.hierarchy?.root || !parsed.hierarchy?.areas) {
-      return null
-    }
-
-    return parsed
-  } catch (err) {
-    console.warn(`Error parsing atlas at ${filePath}:`, err)
-    return null
-  }
-}

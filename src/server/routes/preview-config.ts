@@ -2,7 +2,7 @@
 import path from 'path'
 import { existsSync } from 'fs'
 import { buildPreviewConfig } from '../../content/previews'
-import { parseFlowDefinition, parseFlowConfig, parseAtlasDefinition } from '../../content/config-parser'
+import { parseFlowDefinition, parseFlowConfig } from '../../content/config-parser'
 import { verifyFlow } from '../../content/flow-verifier'
 import type { FlowConfig } from '../../content/preview-types'
 
@@ -14,8 +14,8 @@ export function createPreviewConfigHandler(rootDir: string) {
     const pathAfterConfig = decodeURIComponent(url.pathname.slice('/_preview-config/'.length))
     const previewsDir = path.join(rootDir, 'previews')
 
-    // Check if this is a multi-type path: flows/name, atlas/name, etc.
-    const multiTypeMatch = pathAfterConfig.match(/^(components|screens|flows|atlas)\/(.+)$/)
+    // Check if this is a multi-type path: flows/name, etc.
+    const multiTypeMatch = pathAfterConfig.match(/^(components|screens|flows)\/(.+)$/)
 
     if (multiTypeMatch) {
       const [, type, name] = multiTypeMatch
@@ -59,16 +59,6 @@ export function createPreviewConfigHandler(rootDir: string) {
               const flow = await parseFlowDefinition(configPath)
               if (flow) {
                 return Response.json(flow)
-              }
-            }
-          } else if (type === 'atlas') {
-            const configPathYaml = path.join(previewDir, 'index.yaml')
-            const configPathYml = path.join(previewDir, 'index.yml')
-            const configPath = existsSync(configPathYaml) ? configPathYaml : configPathYml
-            if (existsSync(configPath)) {
-              const atlas = await parseAtlasDefinition(configPath)
-              if (atlas) {
-                return Response.json(atlas)
               }
             }
           } else {
