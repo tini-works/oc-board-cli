@@ -78,9 +78,11 @@ export function verifyFlow(config: FlowConfig, rootDir: string): VerifyResult {
     // Check regions
     if (step.regions) {
       // Read screen source to extract available regions
-      const indexFile = path.join(screenDir, 'index.tsx')
-      const indexFileJsx = path.join(screenDir, 'index.jsx')
-      const sourceFile = existsSync(indexFile) ? indexFile : indexFileJsx
+      // Use state file if step has a state, otherwise use index
+      const baseName = step.state || 'index'
+      const tsxFile = path.join(screenDir, `${baseName}.tsx`)
+      const jsxFile = path.join(screenDir, `${baseName}.jsx`)
+      const sourceFile = existsSync(tsxFile) ? tsxFile : jsxFile
       let screenRegions: string[] = []
 
       if (existsSync(sourceFile)) {
@@ -93,7 +95,7 @@ export function verifyFlow(config: FlowConfig, rootDir: string): VerifyResult {
       for (const [regionName, regionDef] of Object.entries(step.regions)) {
         // Check region exists in screen source
         if (!screenRegions.includes(regionName)) {
-          errors.push(`Region "${regionName}" not found in screens/${screenName}/index.tsx (step "${id}")`)
+          errors.push(`Region "${regionName}" not found in screens/${screenName}/${baseName}.tsx (step "${id}")`)
         }
 
         // Collect goto targets
