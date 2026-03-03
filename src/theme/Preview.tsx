@@ -52,10 +52,10 @@ export function Preview({ src, height = 400, title, mode = 'wasm', showHeader = 
   // URL depends on mode - wasm mode needs src param, legacy uses pre-built files
   // Include state parameter if provided (for screen previews with multiple states)
   const stateParam = state ? `&state=${state}` : ''
-  const stateUrlPart = state ? `?state=${state}` : ''
+  const statePath = state ? `${state}/` : ''
   const previewUrl = effectiveMode === 'wasm'
     ? `/_preview-runtime?src=${src}${stateParam}`
-    : `${baseUrl}/_preview/${src}/${stateUrlPart}`
+    : `${baseUrl}/_preview/${src}/${statePath}`
   const displayTitle = title || src
 
   // Calculate current width
