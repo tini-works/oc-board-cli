@@ -1,6 +1,18 @@
+---
+id: c3-602
+c3-version: 4
+title: parser
+type: component
+parent: c3-6
+goal: Parse single primitive strings
+summary: Parses shorthand primitive notation into structured types
+files:
+  - src/primitives/parser.ts
+---
+
 # c3-602: Parser
 
-## Purpose
+## Goal
 
 Parses single primitive strings into structured objects.
 

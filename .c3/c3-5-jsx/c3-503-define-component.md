@@ -1,6 +1,19 @@
+---
+id: c3-503
+c3-version: 4
+title: define-component
+type: component
+parent: c3-5
+goal: Component definition API with typed props
+summary: defineComponent helper with validation and schema generation
+files:
+  - src/jsx/define-component.ts
+  - src/jsx/validation.ts
+---
+
 # c3-503: Define Component
 
-## Purpose
+## Goal
 
 API for defining reusable components with typed props, slots, and render functions.
 

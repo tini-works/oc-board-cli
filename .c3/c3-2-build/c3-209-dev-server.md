@@ -1,9 +1,22 @@
+---
+id: c3-209
+c3-version: 4
+title: dev-server
+type: component
+parent: c3-2
+goal: Development server with live reload
+summary: Bun-based dev server with SSE live reload and plugin pipeline
+files:
+  - src/server/dev.ts
+  - src/server/start.ts
+---
+
 # c3-209: Dev Server
 
 ## Source
 `src/server/dev.ts`
 
-## Purpose
+## Goal
 Development server using Bun.serve() with Bun.build() for on-demand bundling and SSE-based live reload.
 
 ## Responsibilities

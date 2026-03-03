@@ -1,4 +1,24 @@
+---
+id: c3-0
+c3-version: 4
+title: prev-cli
+type: context
+goal: Zero-config documentation site generator with interactive preview system
+summary: Transforms markdown/MDX files into interactive documentation websites
+---
+
 # prev-cli Architecture
+
+## Goal
+
+Zero-config documentation site generator with interactive preview system. Transforms markdown/MDX files into beautiful, interactive documentation websites.
+
+## Abstract Constraints
+
+- **Zero-config by default** — must work without any configuration file
+- **Static output only** — generates HTML/JS/CSS, no server runtime in production
+- **Bun-native** — all build tooling uses Bun APIs (no webpack, vite, express)
+- **Preview-first** — interactive component/screen/flow previews are first-class citizens
 
 ## System Context
 

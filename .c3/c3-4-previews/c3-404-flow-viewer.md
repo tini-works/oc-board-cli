@@ -1,6 +1,24 @@
+---
+id: c3-404
+c3-version: 4
+title: flow-viewer
+type: component
+parent: c3-4
+goal: Step navigation for user journeys
+summary: Flow previews with state machine navigation and diagram visualization
+files:
+  - src/theme/previews/FlowPreview.tsx
+  - src/theme/previews/FlowDiagram.tsx
+  - src/theme/previews/flow-diagram.ts
+  - src/theme/previews/flow-navigation.ts
+  - src/theme/previews/machines/flow-machine.ts
+  - src/theme/previews/machines/derived.ts
+  - src/theme/previews/stores/flow-store.ts
+---
+
 # c3-404: Flow Viewer
 
-## Purpose
+## Goal
 
 Renders flow previews with step navigation for multi-step user journeys.
 

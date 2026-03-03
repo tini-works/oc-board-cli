@@ -1,6 +1,17 @@
+---
+id: c3-3
+c3-version: 4
+title: theme
+type: container
+boundary: browser
+parent: c3-0
+goal: React frontend for documentation rendering
+summary: Layout, routing, MDX components, and styling for the documentation site
+---
+
 # c3-3: Theme Container
 
-## Purpose
+## Goal
 
 React-based frontend theme that renders the documentation site. Provides layout, navigation, MDX component mapping, and styling.
 

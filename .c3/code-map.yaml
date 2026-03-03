@@ -1,0 +1,240 @@
+# C3 code-map: maps component and ref IDs to source file glob patterns.
+# Edit patterns, then verify with: c3x coverage
+
+_exclude:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/CLAUDE.md"
+  - "src/schemas/**"
+  - "dist/**"
+  - "test/**"
+  - "docs/**"
+  - "previews/**"
+  - ".github/**"
+  - ".opencode/**"
+  - ".claude-plugin/**"
+  - "src/ui/**"
+  - "src/utils/**"
+  - "src/types/**"
+  - "src/migrate.ts"
+  - "src/content/CLAUDE.md"
+  - "src/server/CLAUDE.md"
+  - "src/tokens/CLAUDE.md"
+  - "src/validators/CLAUDE.md"
+  - "src/primitives/CLAUDE.md"
+  - "src/primitives/tokens.css"
+  - "src/renderers/html/layout.schema.json"
+  - "src/renderers/react/layout.schema.json"
+  - "test-docs/**"
+  - "test-parsers.ts"
+  - "test-scanner.ts"
+  - "tsconfig.json"
+  - ".prev.yaml"
+  - ".gitignore"
+  - ".claude/**"
+  - "AGENTS.md"
+  - "CLAUDE.md"
+  - "LICENSE"
+  - "bun.lock"
+  - "package.json"
+  - "src/jsx/migrate.ts"
+  - "src/primitives/migrate.ts"
+
+# === c3-1: CLI ===
+c3-101:
+  - src/cli.ts
+
+c3-102:
+  - src/config/loader.ts
+  - src/config/schema.ts
+  - src/config/index.ts
+
+c3-103:
+  - src/validators/index.ts
+  - src/validators/schema-validator.ts
+  - src/validators/semantic-validator.ts
+
+c3-104:
+  - src/typecheck/index.ts
+
+# === c3-2: Build ===
+c3-202:
+  - src/content/pages.ts
+
+c3-203:
+  - src/content/previews.ts
+  - src/content/config-parser.ts
+  - src/content/preview-types.ts
+  - src/content/flow-verifier.ts
+
+c3-205:
+  - src/server/routes/preview-config.ts
+
+c3-206:
+  - src/server/plugins/mdx.ts
+
+c3-207:
+  - src/preview-runtime/build-optimized.ts
+  - src/preview-runtime/build.ts
+  - src/preview-runtime/vendors.ts
+  - src/preview-runtime/tailwind.ts
+  - src/preview-runtime/types.ts
+  - src/preview-runtime/region-bridge.ts
+  - src/preview-runtime/template.html
+  - src/preview-runtime/fast-template.html
+
+c3-208:
+  - src/server/routes/tokens.ts
+
+c3-209:
+  - src/server/dev.ts
+  - src/server/start.ts
+  - src/server/routes/preview-bundle.ts
+  - src/server/routes/component-bundle.ts
+  - src/server/routes/jsx-bundle.ts
+  - src/server/routes/og-image.ts
+
+c3-210:
+  - src/server/build.ts
+
+c3-211:
+  - src/server/preview.ts
+
+c3-212:
+  - src/server/plugins/aliases.ts
+
+# === c3-3: Theme ===
+c3-301:
+  - src/theme/entry.tsx
+  - src/theme/index.ts
+  - src/theme/index.html
+
+c3-302:
+  - src/theme/Layout.tsx
+  - src/theme/styles.css
+  - src/theme/types.ts
+  - src/theme/storage.ts
+  - src/theme/DevToolsContext.tsx
+  - src/theme/MetadataBlock.tsx
+  - src/theme/diagrams.tsx
+  - src/theme/hooks/useStorage.ts
+  - src/theme/hooks/useViewport.ts
+
+c3-303:
+  - src/theme/mdx-components.tsx
+
+c3-304:
+  - src/theme/Toolbar.tsx
+  - src/theme/Toolbar.css
+  - src/theme/icons.tsx
+
+c3-305:
+  - src/theme/TOCPanel.tsx
+  - src/theme/TOCPanel.css
+
+# === c3-4: Previews ===
+c3-401:
+  - src/theme/previews/PreviewRouter.tsx
+  - src/theme/previews/index.ts
+  - src/theme/Preview.tsx
+
+c3-402:
+  - src/theme/previews/ComponentPreview.tsx
+  - src/theme/previews/TokenPlayground.tsx
+  - src/theme/previews/TokensPage.tsx
+  - src/theme/hooks/useTokenOverrides.ts
+
+c3-403:
+  - src/theme/previews/ScreenPreview.tsx
+  - src/theme/previews/machines/screen-machine.ts
+  - src/theme/previews/stores/screen-store.ts
+  - src/theme/previews/ViewportControls.tsx
+  - src/theme/previews/StatusBadge.tsx
+  - src/theme/previews/StatusDropdown.tsx
+  - src/theme/previews/SnapshotPanel.tsx
+  - src/theme/previews/SnapshotButton.tsx
+  - src/theme/previews/SnapshotCompare.tsx
+  - src/theme/previews/AnnotationLayer.tsx
+  - src/theme/previews/AnnotationPin.tsx
+  - src/theme/previews/AnnotationThread.tsx
+  - src/theme/hooks/useAnnotations.ts
+  - src/theme/hooks/useApprovalStatus.ts
+  - src/theme/hooks/useSnapshots.ts
+
+c3-404:
+  - src/theme/previews/FlowPreview.tsx
+  - src/theme/previews/FlowDiagram.tsx
+  - src/theme/previews/flow-diagram.ts
+  - src/theme/previews/flow-navigation.ts
+  - src/theme/previews/machines/flow-machine.ts
+  - src/theme/previews/machines/derived.ts
+  - src/theme/previews/stores/flow-store.ts
+
+c3-406:
+  - src/renderers/registry.ts
+  - src/renderers/render.ts
+  - src/renderers/types.ts
+  - src/renderers/index.ts
+  - src/renderers/react/index.ts
+  - src/renderers/html/index.ts
+
+# === c3-5: JSX ===
+c3-501:
+  - src/jsx/vnode.ts
+
+c3-502:
+  - src/jsx/jsx-runtime.ts
+  - src/jsx/index.ts
+  - src/jsx/schemas/index.ts
+  - src/jsx/schemas/primitives.ts
+  - src/jsx/schemas/tokens.ts
+
+c3-503:
+  - src/jsx/define-component.ts
+  - src/jsx/validation.ts
+
+c3-504:
+  - src/jsx/adapters/html.ts
+  - src/jsx/adapters/react.tsx
+
+# === c3-6: Primitives ===
+c3-601:
+  - src/primitives/types.ts
+  - src/primitives/index.ts
+
+c3-602:
+  - src/primitives/parser.ts
+
+c3-603:
+  - src/primitives/template-parser.ts
+
+c3-604:
+  - src/primitives/template-renderer.ts
+
+# === c3-7: Tokens ===
+c3-701:
+  - src/tokens/resolver.ts
+  - src/tokens/utils.ts
+
+c3-702:
+  - src/tokens/defaults.ts
+  - src/tokens/defaults.yaml
+
+c3-703:
+  - src/tokens/validation.ts
+
+# === Refs ===
+ref-virtual-modules:
+  - src/server/plugins/virtual-modules.ts
+
+ref-preview-types:
+  - src/content/preview-types.ts
+
+ref-config-schema:
+  - src/config/schema.ts
+
+ref-theming:
+  - src/theme/styles.css
+
+ref-capabilities: []

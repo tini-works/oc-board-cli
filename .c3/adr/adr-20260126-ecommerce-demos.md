@@ -18,6 +18,10 @@ approved-files:
 
 > **⚠️ DEPRECATED:** This ADR was deprecated on 2026-01-30. The e-commerce demo content was removed in favor of Workflow design system demos. See commit `f2e06f1`.
 
+## Goal
+
+Add diverse e-commerce demo content to showcase screen and flow preview capabilities.
+
 ## Problem
 
 The documentation showcase lacks diverse screen and flow examples. Currently only has login, dashboard, and a basic onboarding flow.

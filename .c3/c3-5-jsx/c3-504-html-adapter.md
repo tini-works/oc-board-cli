@@ -1,6 +1,18 @@
+---
+id: c3-504
+c3-version: 4
+title: html-adapter
+type: component
+parent: c3-5
+goal: VNode to HTML string rendering
+summary: Renders JSX VNode tree to static HTML output
+files:
+  - src/jsx/adapters/html.ts
+---
+
 # c3-504: HTML Adapter
 
-## Purpose
+## Goal
 
 Renders VNode trees to HTML strings for static output.
 

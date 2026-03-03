@@ -1,6 +1,18 @@
+---
+id: c3-501
+c3-version: 4
+title: vnode
+type: component
+parent: c3-5
+goal: Virtual node representation for renderer-agnostic layouts
+summary: VNode type definition and creation utilities
+files:
+  - src/jsx/vnode.ts
+---
+
 # c3-501: VNode
 
-## Purpose
+## Goal
 
 Virtual node representation for JSX primitives. Provides a lightweight, framework-agnostic tree structure.
 

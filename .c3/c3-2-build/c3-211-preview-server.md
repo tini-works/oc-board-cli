@@ -1,9 +1,21 @@
+---
+id: c3-211
+c3-version: 4
+title: preview-server
+type: component
+parent: c3-2
+goal: Serve production builds locally
+summary: Static file server for testing production output
+files:
+  - src/server/preview.ts
+---
+
 # c3-211: Preview Server
 
 ## Source
 `src/server/preview.ts`
 
-## Purpose
+## Goal
 Static file server for previewing production builds locally, serving from the `./dist` directory.
 
 ## Responsibilities

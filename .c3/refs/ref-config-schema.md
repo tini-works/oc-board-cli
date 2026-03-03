@@ -1,8 +1,30 @@
+---
+id: ref-config-schema
+c3-version: 4
+title: YAML Configuration Schema
+type: ref
+goal: Define .prev.yaml configuration contract
+summary: Schema definition for project configuration and preview configs
+via:
+  - c3-102
+  - c3-103
+files:
+  - src/config/schema.ts
+---
+
 # ref-config-schema: YAML Configuration Schema
 
 ## Goal
 
 Provide a consistent, validated configuration format for prev-cli projects that supports both global settings (`.prev.yaml`) and preview-specific configurations, with sensible defaults and clear schema definitions.
+
+## Choice
+
+YAML with optional keys, sensible defaults, and Zod schema validation.
+
+## Why
+
+YAML is human-friendly for documentation-focused users. Optional-everything with defaults enables true zero-config while allowing progressive customization.
 
 ## Pattern
 

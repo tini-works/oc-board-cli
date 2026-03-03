@@ -10,6 +10,10 @@ approved-files:
 
 # ADR: Embedded TypeScript Type Checker
 
+## Goal
+
+Provide embedded TypeScript type checking for preview files without requiring user-side TypeScript configuration.
+
 ## Problem
 
 Users writing preview files (TSX) have no type checking unless they manually install `@types/react` and configure a `tsconfig.json`. When prev-cli is installed globally or run via `bunx`, TypeScript types are not accessible to the user's project.

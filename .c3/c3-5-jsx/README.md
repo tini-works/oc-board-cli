@@ -1,6 +1,17 @@
+---
+id: c3-5
+c3-version: 4
+title: jsx
+type: container
+boundary: library
+parent: c3-0
+goal: Renderer-agnostic JSX primitives for layout composition
+summary: VNode representation, JSX runtime, component definitions, HTML adapter
+---
+
 # c3-5: JSX Primitives Container
 
-## Purpose
+## Goal
 
 High-level JSX primitives system for defining renderer-agnostic component layouts. Provides VNode abstraction and HTML rendering.
 

@@ -1,6 +1,19 @@
+---
+id: c3-701
+c3-version: 4
+title: resolver
+type: component
+parent: c3-7
+goal: Token resolution with YAML parsing and deep merge
+summary: Resolves user tokens against defaults with inheritance support
+files:
+  - src/tokens/resolver.ts
+  - src/tokens/utils.ts
+---
+
 # c3-701: Resolver
 
-## Purpose
+## Goal
 
 Token resolution pipeline: loads user YAML overrides and deep-merges them with default tokens to produce a final `TokensConfig`.
 

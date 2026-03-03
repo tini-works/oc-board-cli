@@ -1,9 +1,21 @@
+---
+id: c3-212
+c3-version: 4
+title: aliases-plugin
+type: component
+parent: c3-2
+goal: Module resolution and React deduplication
+summary: Bun plugin for path aliases and React singleton enforcement
+files:
+  - src/server/plugins/aliases.ts
+---
+
 # c3-212: Aliases Plugin
 
 ## Source
 `src/server/plugins/aliases.ts`
 
-## Purpose
+## Goal
 Bun plugin for module resolution that ensures React deduplication and consistent package resolution from the CLI's own `node_modules`.
 
 ## Responsibilities

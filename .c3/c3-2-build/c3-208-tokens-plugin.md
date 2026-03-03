@@ -1,6 +1,18 @@
+---
+id: c3-208
+c3-version: 4
+title: tokens-plugin
+type: component
+parent: c3-2
+goal: Deliver design tokens via virtual module and dev endpoint
+summary: Token injection into build pipeline and dev server
+files:
+  - src/server/routes/tokens.ts
+---
+
 # c3-208: Tokens Plugin
 
-## Purpose
+## Goal
 
 Delivers resolved design tokens to the preview runtime -- as a virtual module for builds and as an HTTP endpoint for dev mode.
 

@@ -1,6 +1,18 @@
+---
+id: c3-603
+c3-version: 4
+title: template-parser
+type: component
+parent: c3-6
+goal: Parse full template layouts
+summary: Multi-line template layout parsing with grid support
+files:
+  - src/primitives/template-parser.ts
+---
+
 # c3-603: Template Parser
 
-## Purpose
+## Goal
 
 Parses full template layouts with nested primitives from YAML-like structures.
 

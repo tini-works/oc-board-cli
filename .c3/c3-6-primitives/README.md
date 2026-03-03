@@ -1,6 +1,17 @@
+---
+id: c3-6
+c3-version: 4
+title: primitives
+type: container
+boundary: library
+parent: c3-0
+goal: Template-based layout primitives
+summary: Type definitions, parsers, and renderers for layout primitives
+---
+
 # c3-6: Layout Primitives Container
 
-## Purpose
+## Goal
 
 Template-based layout primitives for renderer-agnostic preview definitions. Parses `$col`, `$row`, etc. syntax into structured layouts.
 

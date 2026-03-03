@@ -1,6 +1,18 @@
+---
+id: c3-101
+c3-version: 4
+title: cli-entry
+type: component
+parent: c3-1
+goal: Main entry point for prev-cli application
+summary: Parses CLI arguments and dispatches to command handlers
+files:
+  - src/cli.ts
+---
+
 # c3-101: CLI Entry
 
-## Purpose
+## Goal
 
 Main entry point for the prev-cli application. Parses command-line arguments, loads configuration, and dispatches to appropriate command handlers.
 

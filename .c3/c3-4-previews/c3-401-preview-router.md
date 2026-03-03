@@ -1,6 +1,20 @@
+---
+id: c3-401
+c3-version: 4
+title: preview-router
+type: component
+parent: c3-4
+goal: Route dispatch by preview type
+summary: Routes to component, screen, or flow viewer based on preview config
+files:
+  - src/theme/previews/PreviewRouter.tsx
+  - src/theme/previews/index.ts
+  - src/theme/Preview.tsx
+---
+
 # c3-401: Preview Router
 
-## Purpose
+## Goal
 
 Routes preview requests to the appropriate type-specific viewer based on preview type (component, screen, flow).
 

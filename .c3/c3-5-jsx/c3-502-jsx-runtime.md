@@ -1,6 +1,22 @@
+---
+id: c3-502
+c3-version: 4
+title: jsx-runtime
+type: component
+parent: c3-5
+goal: JSX primitive components (Col, Row, Box, etc.)
+summary: Layout primitive JSX functions and schema definitions
+files:
+  - src/jsx/jsx-runtime.ts
+  - src/jsx/index.ts
+  - src/jsx/schemas/index.ts
+  - src/jsx/schemas/primitives.ts
+  - src/jsx/schemas/tokens.ts
+---
+
 # c3-502: JSX Runtime
 
-## Purpose
+## Goal
 
 JSX primitive components that create VNodes for layout and content.
 

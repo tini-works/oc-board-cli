@@ -1,6 +1,19 @@
+---
+id: c3-702
+c3-version: 4
+title: defaults
+type: component
+parent: c3-7
+goal: Default shadcn design token values
+summary: Baseline token definitions for colors, spacing, typography
+files:
+  - src/tokens/defaults.ts
+  - src/tokens/defaults.yaml
+---
+
 # c3-702: Defaults
 
-## Purpose
+## Goal
 
 Ships the baseline shadcn-compatible design token values used when no user override is present.
 

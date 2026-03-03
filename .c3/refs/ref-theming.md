@@ -1,8 +1,29 @@
+---
+id: ref-theming
+c3-version: 4
+title: CSS Theming with Variables
+type: ref
+goal: Enable seamless theme switching between light/dark/system
+summary: CSS custom properties pattern for color scheme management
+via:
+  - c3-301
+  - c3-302
+  - c3-304
+---
+
 # ref-theming: CSS Theming with Variables
 
 ## Goal
 
 Enable seamless switching between light, dark, and system-preferred color schemes while maintaining consistent visual hierarchy and accessibility across all documentation pages.
+
+## Choice
+
+CSS custom properties (variables) with a `dark` class toggle on the root element.
+
+## Why
+
+CSS variables enable runtime theme switching without JS re-renders, work with any framework, and cascade naturally through the component tree.
 
 ## Pattern
 

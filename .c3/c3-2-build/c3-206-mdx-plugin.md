@@ -1,6 +1,18 @@
+---
+id: c3-206
+c3-version: 4
+title: mdx-plugin
+type: component
+parent: c3-2
+goal: MDX transformation pipeline
+summary: Compiles MDX to React components with remark/rehype plugins
+files:
+  - src/server/plugins/mdx.ts
+---
+
 # c3-206: MDX Plugin
 
-## Purpose
+## Goal
 
 Bun plugin that compiles .md/.mdx files to React components using `@mdx-js/mdx`, enabling React components in documentation.
 

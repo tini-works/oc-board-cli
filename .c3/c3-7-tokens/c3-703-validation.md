@@ -1,6 +1,18 @@
+---
+id: c3-703
+c3-version: 4
+title: validation
+type: component
+parent: c3-7
+goal: Token validation with fuzzy suggestions
+summary: Validates token values and suggests corrections for typos
+files:
+  - src/tokens/validation.ts
+---
+
 # c3-703: Validation
 
-## Purpose
+## Goal
 
 Validates that token references (e.g., in preview configs) are valid keys within the resolved token schema. Throws structured errors with Levenshtein-based "did you mean?" suggestions.
 

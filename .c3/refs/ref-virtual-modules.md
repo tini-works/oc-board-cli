@@ -1,8 +1,32 @@
+---
+id: ref-virtual-modules
+c3-version: 4
+title: Bun Virtual Module Pattern
+type: ref
+goal: Generate runtime modules at build time without static imports
+summary: Bun plugin pattern for onResolve/onLoad dynamic module generation
+via:
+  - c3-202
+  - c3-203
+  - c3-205
+  - c3-208
+files:
+  - src/server/plugins/virtual-modules.ts
+---
+
 # ref-virtual-modules: Bun Virtual Module Pattern
 
 ## Goal
 
 Generate runtime JavaScript modules at build time to inject dynamically discovered content (pages, previews, configuration) into the application without requiring static imports or build-time code generation.
+
+## Choice
+
+Bun plugin `onResolve`/`onLoad` API for virtual module generation.
+
+## Why
+
+Avoids code generation to disk, keeps the build pipeline pure, and leverages Bun's native plugin system for zero-overhead module injection.
 
 ## Pattern
 

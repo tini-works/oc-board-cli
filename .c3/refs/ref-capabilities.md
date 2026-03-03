@@ -1,4 +1,30 @@
-# prev-cli Capability Checklist
+---
+id: ref-capabilities
+c3-version: 4
+title: Runtime Capabilities
+type: ref
+goal: Define capability detection and progressive enhancement
+summary: Feature detection pattern for optional runtime capabilities
+via:
+  - c3-207
+  - c3-209
+---
+
+# Runtime Capabilities
+
+## Goal
+
+Define capability detection and progressive enhancement for prev-cli features.
+
+## Choice
+
+Manual capability checklist validated against running dev server.
+
+## Why
+
+Ensures all features work across install methods (bunx, global, local) and provides a regression baseline for future changes.
+
+# Capability Checklist
 Base URL: http://localhost:3737
 Verified: 2026-02-27 (pre-migration baseline)
 

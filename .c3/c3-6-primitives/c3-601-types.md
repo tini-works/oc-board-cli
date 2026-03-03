@@ -1,6 +1,19 @@
+---
+id: c3-601
+c3-version: 4
+title: types
+type: component
+parent: c3-6
+goal: Primitive type definitions
+summary: Type system for layout primitives (Row, Col, Stack, etc.)
+files:
+  - src/primitives/types.ts
+  - src/primitives/index.ts
+---
+
 # c3-601: Types
 
-## Purpose
+## Goal
 
 Type definitions for layout primitives and their properties.
 

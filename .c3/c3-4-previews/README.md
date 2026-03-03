@@ -1,6 +1,17 @@
+---
+id: c3-4
+c3-version: 4
+title: previews
+type: container
+boundary: browser
+parent: c3-0
+goal: Interactive preview catalog with type-specific viewers
+summary: Preview routing, component/screen/flow viewers, and render adapters
+---
+
 # c3-4: Previews Container
 
-## Purpose
+## Goal
 
 Interactive preview system for showcasing UI components, screens, user flows, and information architecture. Provides type-specific viewers and render adapters.
 

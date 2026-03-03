@@ -1,6 +1,18 @@
+---
+id: c3-303
+c3-version: 4
+title: mdx-provider
+type: component
+parent: c3-3
+goal: Custom component mapping for MDX content
+summary: Provides React components for MDX rendering (headings, code blocks, etc.)
+files:
+  - src/theme/mdx-components.tsx
+---
+
 # c3-303: MDX Provider
 
-## Purpose
+## Goal
 
 Provides custom React component mapping for MDX content, enabling enhanced rendering of links, tables, and embedded previews.
 

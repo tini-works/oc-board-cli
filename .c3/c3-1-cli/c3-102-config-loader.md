@@ -1,6 +1,20 @@
+---
+id: c3-102
+c3-version: 4
+title: config-loader
+type: component
+parent: c3-1
+goal: Load and validate .prev.yaml configuration
+summary: Configuration loading, schema validation, and defaults
+files:
+  - src/config/loader.ts
+  - src/config/schema.ts
+  - src/config/index.ts
+---
+
 # c3-102: Config Loader
 
-## Purpose
+## Goal
 
 Loads, validates, and saves prev-cli configuration from `.prev.yaml` files.
 

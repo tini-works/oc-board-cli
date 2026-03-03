@@ -1,6 +1,20 @@
+---
+id: c3-402
+c3-version: 4
+title: component-viewer
+type: component
+parent: c3-4
+goal: Interactive component preview with props panel
+summary: Renders individual components with variant selection
+files:
+  - src/theme/previews/ComponentPreview.tsx
+  - src/theme/previews/TokenPlayground.tsx
+  - src/theme/previews/TokensPage.tsx
+---
+
 # c3-402: Component Viewer
 
-## Purpose
+## Goal
 
 Renders component previews with interactive props panel for testing different configurations.
 

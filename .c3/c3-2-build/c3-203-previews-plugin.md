@@ -1,6 +1,21 @@
+---
+id: c3-203
+c3-version: 4
+title: previews-plugin
+type: component
+parent: c3-2
+goal: Discover preview configs and generate catalog
+summary: Preview discovery, config parsing, and flow verification
+files:
+  - src/content/previews.ts
+  - src/content/config-parser.ts
+  - src/content/preview-types.ts
+  - src/content/flow-verifier.ts
+---
+
 # c3-203: Previews Plugin
 
-## Purpose
+## Goal
 
 Content scanner that discovers preview components and generates virtual modules for the preview catalog. Virtual modules are served via the Bun plugin in `src/server/plugins/virtual-modules.ts`. Production preview HTML files are built by [c3-210](./c3-210-build.md).
 

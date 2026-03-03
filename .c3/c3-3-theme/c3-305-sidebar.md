@@ -1,6 +1,19 @@
+---
+id: c3-305
+c3-version: 4
+title: sidebar
+type: component
+parent: c3-3
+goal: Table of Contents navigation panel
+summary: Navigation tree from page manifest with active state tracking
+files:
+  - src/theme/TOCPanel.tsx
+  - src/theme/TOCPanel.css
+---
+
 # c3-305: Sidebar (TOC Panel)
 
-## Purpose
+## Goal
 
 Table of Contents panel that displays the navigation tree with support for drag-and-drop reordering.
 

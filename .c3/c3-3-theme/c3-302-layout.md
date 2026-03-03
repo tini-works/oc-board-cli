@@ -1,6 +1,22 @@
+---
+id: c3-302
+c3-version: 4
+title: layout
+type: component
+parent: c3-3
+goal: Main layout wrapper with toolbar and theme
+summary: Page layout with sidebar, content area, and theme controls
+files:
+  - src/theme/Layout.tsx
+  - src/theme/styles.css
+  - src/theme/types.ts
+  - src/theme/storage.ts
+  - src/theme/DevToolsContext.tsx
+---
+
 # c3-302: Layout
 
-## Purpose
+## Goal
 
 Main layout wrapper that provides consistent page structure with floating toolbar, TOC panel, and theme/width controls.
 

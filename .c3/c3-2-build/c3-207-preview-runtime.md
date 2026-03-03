@@ -1,6 +1,25 @@
+---
+id: c3-207
+c3-version: 4
+title: preview-runtime
+type: component
+parent: c3-2
+goal: Build standalone preview HTML with Tailwind
+summary: Optimized preview bundling with vendor caching and Tailwind integration
+files:
+  - src/preview-runtime/build-optimized.ts
+  - src/preview-runtime/vendors.ts
+  - src/preview-runtime/tailwind.ts
+  - src/preview-runtime/types.ts
+  - src/preview-runtime/region-bridge.ts
+  - src/preview-runtime/build.ts
+  - src/preview-runtime/template.html
+  - src/preview-runtime/fast-template.html
+---
+
 # c3-207: Preview Runtime
 
-## Purpose
+## Goal
 
 Builds standalone preview HTML files for production using Bun.build() and Tailwind CSS compilation.
 

@@ -1,6 +1,20 @@
+---
+id: c3-301
+c3-version: 4
+title: entry
+type: component
+parent: c3-3
+goal: React app entry point and routing
+summary: Mounts React app with router, MDX provider, and theme setup
+files:
+  - src/theme/entry.tsx
+  - src/theme/index.ts
+  - src/theme/index.html
+---
+
 # c3-301: Entry
 
-## Purpose
+## Goal
 
 React application entry point that bootstraps the documentation site with routing, MDX provider, and layout components.
 

@@ -1,6 +1,17 @@
+---
+id: c3-7
+c3-version: 4
+title: tokens
+type: container
+boundary: library
+parent: c3-0
+goal: Design token system with shadcn defaults
+summary: Token resolution, defaults, validation with user override support
+---
+
 # c3-7: Tokens Container
 
-## Purpose
+## Goal
 
 Design token system for prev-cli previews. Provides a shadcn-compatible token schema that users can override via `previews/tokens.yaml`, with validation and runtime delivery to the browser.
 

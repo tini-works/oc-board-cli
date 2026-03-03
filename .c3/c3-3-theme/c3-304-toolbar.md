@@ -1,6 +1,20 @@
+---
+id: c3-304
+c3-version: 4
+title: toolbar
+type: component
+parent: c3-3
+goal: Floating pill with navigation and theme toggles
+summary: Toolbar with TOC toggle, theme switch, and navigation controls
+files:
+  - src/theme/Toolbar.tsx
+  - src/theme/Toolbar.css
+  - src/theme/icons.tsx
+---
+
 # c3-304: Toolbar
 
-## Purpose
+## Goal
 
 Floating pill toolbar at the bottom of the viewport providing quick access to navigation, theme, and width controls.
 

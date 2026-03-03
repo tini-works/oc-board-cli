@@ -1,8 +1,33 @@
+---
+id: ref-preview-types
+c3-version: 4
+title: Preview Type Hierarchy
+type: ref
+goal: Define consistent preview type taxonomy
+summary: Component, screen, flow, and atlas preview type definitions
+via:
+  - c3-203
+  - c3-401
+  - c3-402
+  - c3-403
+  - c3-404
+files:
+  - src/content/preview-types.ts
+---
+
 # ref-preview-types: Preview Type Hierarchy
 
 ## Goal
 
 Establish a clear taxonomy for preview documentation that supports three distinct documentation needs: reusable components, screen states, and user flows, each with appropriate configuration schemas and rendering strategies.
+
+## Choice
+
+Three-type taxonomy: component (reusable units), screen (full-page states), flow (multi-step journeys).
+
+## Why
+
+Each documentation need has fundamentally different rendering and interaction requirements — components need prop panels, screens need state variants, flows need step navigation.
 
 ## Pattern
 

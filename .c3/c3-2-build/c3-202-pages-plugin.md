@@ -1,6 +1,18 @@
+---
+id: c3-202
+c3-version: 4
+title: pages-plugin
+type: component
+parent: c3-2
+goal: Discover markdown/MDX pages and generate sidebar
+summary: File system page discovery and virtual module generation
+files:
+  - src/content/pages.ts
+---
+
 # c3-202: Pages Plugin
 
-## Purpose
+## Goal
 
 Content scanner that discovers markdown/MDX files, parses frontmatter, and provides page data for virtual module generation. Virtual modules are served via the Bun plugin in `src/server/plugins/virtual-modules.ts`.
 

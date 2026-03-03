@@ -1,9 +1,21 @@
+---
+id: c3-210
+c3-version: 4
+title: build
+type: component
+parent: c3-2
+goal: Production static site generator
+summary: Builds static HTML/JS/CSS output to dist/
+files:
+  - src/server/build.ts
+---
+
 # c3-210: Build
 
 ## Source
 `src/server/build.ts`
 
-## Purpose
+## Goal
 Production static site generator using Bun.build() for bundling and HTML generation.
 
 ## Responsibilities

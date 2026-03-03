@@ -1,6 +1,20 @@
+---
+id: c3-103
+c3-version: 4
+title: validator
+type: component
+parent: c3-1
+goal: Validate preview configurations
+summary: Schema and semantic validation for preview configs
+files:
+  - src/validators/index.ts
+  - src/validators/schema-validator.ts
+  - src/validators/semantic-validator.ts
+---
+
 # c3-103: Validator
 
-## Purpose
+## Goal
 
 Validates preview configurations against schema rules and semantic constraints. Powers the `prev validate` CLI command.
 

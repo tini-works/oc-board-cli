@@ -1,6 +1,17 @@
+---
+id: c3-1
+c3-version: 4
+title: cli
+type: container
+boundary: process
+parent: c3-0
+goal: Command-line interface for prev-cli
+summary: Handles command dispatch, configuration loading, and orchestrates build/dev workflows
+---
+
 # c3-1: CLI Container
 
-## Purpose
+## Goal
 
 Command-line interface for prev-cli. Handles command dispatch, configuration loading, and orchestrates the build/dev workflows.
 

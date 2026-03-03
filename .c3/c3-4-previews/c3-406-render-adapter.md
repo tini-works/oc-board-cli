@@ -1,6 +1,23 @@
+---
+id: c3-406
+c3-version: 4
+title: render-adapter
+type: component
+parent: c3-4
+goal: Pluggable rendering backends for previews
+summary: Registry-based renderer selection (React, HTML) with adapter pattern
+files:
+  - src/renderers/registry.ts
+  - src/renderers/render.ts
+  - src/renderers/types.ts
+  - src/renderers/index.ts
+  - src/renderers/react/index.ts
+  - src/renderers/html/index.ts
+---
+
 # c3-406: Render Adapter
 
-## Purpose
+## Goal
 
 Pluggable rendering backend that enables preview components to be rendered with different technologies (React, HTML). Defines the adapter interface, manages a global registry, and selects the appropriate adapter per config.
 

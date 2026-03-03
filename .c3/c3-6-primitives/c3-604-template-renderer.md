@@ -1,6 +1,18 @@
+---
+id: c3-604
+c3-version: 4
+title: template-renderer
+type: component
+parent: c3-6
+goal: Render parsed templates to output
+summary: Converts parsed template AST to renderable output
+files:
+  - src/primitives/template-renderer.ts
+---
+
 # c3-604: Template Renderer
 
-## Purpose
+## Goal
 
 Renders parsed primitive templates to concrete output formats.
 

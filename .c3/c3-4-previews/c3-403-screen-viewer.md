@@ -1,6 +1,23 @@
+---
+id: c3-403
+c3-version: 4
+title: screen-viewer
+type: component
+parent: c3-4
+goal: Screen state variants with viewport toggle
+summary: Screen previews with state machine-driven variant management
+files:
+  - src/theme/previews/ScreenPreview.tsx
+  - src/theme/previews/machines/screen-machine.ts
+  - src/theme/previews/stores/screen-store.ts
+  - src/theme/previews/ViewportControls.tsx
+  - src/theme/previews/StatusBadge.tsx
+  - src/theme/previews/StatusDropdown.tsx
+---
+
 # c3-403: Screen Viewer
 
-## Purpose
+## Goal
 
 Renders screen previews with multiple states and viewport controls for testing full-page views.
 

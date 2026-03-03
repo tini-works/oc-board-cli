@@ -1,6 +1,18 @@
+---
+id: c3-104
+c3-version: 4
+title: typechecker
+type: component
+parent: c3-1
+goal: Embedded TypeScript type checking via tsgo
+summary: Type checks preview TSX files using native TypeScript compiler
+files:
+  - src/typecheck/index.ts
+---
+
 # c3-104: Typechecker
 
-## Purpose
+## Goal
 
 Embedded TypeScript type checker for preview files. Uses tsgo (native TypeScript compiler) bundled with prev-cli, enabling type checking without requiring user-side package installation.
 

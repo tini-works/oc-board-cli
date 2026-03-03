@@ -1,6 +1,17 @@
+---
+id: c3-2
+c3-version: 4
+title: build
+type: container
+boundary: process
+parent: c3-0
+goal: Bun-based build system with plugin architecture
+summary: Dev server, production builder, and plugin pipeline for pages, previews, MDX
+---
+
 # c3-2: Build Container
 
-## Purpose
+## Goal
 
 Bun-based build system that compiles markdown/MDX files into a static documentation site. Provides plugins for page discovery, preview scanning, and MDX transformation, plus dev/preview servers.
 

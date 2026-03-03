@@ -1,6 +1,18 @@
+---
+id: c3-205
+c3-version: 4
+title: config-plugin
+type: component
+parent: c3-2
+goal: Inject runtime configuration via virtual module
+summary: Serves runtime config to the theme frontend
+files:
+  - src/server/routes/preview-config.ts
+---
+
 # c3-205: Config Plugin
 
-## Purpose
+## Goal
 
 Injects runtime configuration into the client bundle via the `virtual:prev-config` virtual module, and provides a dev-mode route for config updates.
 
