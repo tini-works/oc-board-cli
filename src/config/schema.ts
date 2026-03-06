@@ -1,3 +1,10 @@
+export interface ApprovalConfig {
+  /** Webhook URL to POST when any page status changes */
+  webhookUrl?: string
+  /** Display the status dropdown on doc pages (default: true) */
+  enabled?: boolean
+}
+
 export interface PrevConfig {
   theme: 'light' | 'dark' | 'system'
   contentWidth: 'constrained' | 'full'
@@ -5,6 +12,8 @@ export interface PrevConfig {
   include: string[]
   order: Record<string, string[]>
   port?: number
+  /** Review & approval gate configuration */
+  approval?: ApprovalConfig
 }
 
 export const defaultConfig: PrevConfig = {
@@ -49,6 +58,13 @@ export function validateConfig(raw: unknown): PrevConfig {
 
     if (typeof obj.port === 'number' && obj.port > 0 && obj.port < 65536) {
       config.port = obj.port
+    }
+
+    if (obj.approval && typeof obj.approval === 'object') {
+      const a = obj.approval as Record<string, unknown>
+      config.approval = {}
+      if (typeof a.webhookUrl === 'string') config.approval.webhookUrl = a.webhookUrl
+      if (typeof a.enabled === 'boolean') config.approval.enabled = a.enabled
     }
   }
 

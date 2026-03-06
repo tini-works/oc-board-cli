@@ -1,15 +1,47 @@
 import React, { useState, useEffect } from 'react'
+import { useLocation } from '@tanstack/react-router'
 import type { PageTree } from 'fumadocs-core/server'
 import { config } from 'virtual:prev-config'
 import { Toolbar } from './Toolbar'
 import { TOCPanel } from './TOCPanel'
 import { IconSprite } from './icons'
+import { StatusDropdown } from './previews/StatusDropdown'
+import { useApprovalStatus } from './hooks/useApprovalStatus'
 import './Toolbar.css'
 import './TOCPanel.css'
 
 interface LayoutProps {
   tree: PageTree.Root
   children: React.ReactNode
+}
+
+function PageApprovalBadge() {
+  const location = useLocation()
+  // Use the current URL path as the page identifier
+  const pageId = `page:${location.pathname}`
+  const { status, changeStatus, getAuditLog } = useApprovalStatus(pageId)
+
+  // Only show if approval is enabled (default: true) and not on preview routes
+  const isPreviewRoute = location.pathname.startsWith('/previews')
+  const approvalEnabled = config.approval?.enabled !== false
+
+  if (isPreviewRoute || !approvalEnabled) return null
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '16px',
+      right: '16px',
+      zIndex: 40,
+    }}>
+      <StatusDropdown
+        previewName={pageId}
+        status={status}
+        onStatusChange={changeStatus}
+        getAuditLog={getAuditLog}
+      />
+    </div>
+  )
 }
 
 export function Layout({ tree, children }: LayoutProps) {
@@ -50,6 +82,7 @@ export function Layout({ tree, children }: LayoutProps) {
         onTocToggle={handleTocToggle}
         tocOpen={tocOpen}
       />
+      <PageApprovalBadge />
       {tocOpen && (
         <TOCPanel
           tree={tree}
