@@ -52,6 +52,33 @@ async function emitWebhook(webhookUrl: string, entry: ApprovalEntry): Promise<vo
   }
 }
 
+// ── CR Context ────────────────────────────────────────────────────────────────
+// Written by OpenClaw sot-manager when spawning a per-CR preview instance.
+// Lets the prev-cli UI show a banner: branch, PR link, reviewer context.
+
+export interface CRContext {
+  cr_id: string
+  slug: string
+  branch: string
+  pr_number?: number
+  pr_url?: string
+  tunnel_url?: string
+  user?: string
+  created_at?: string
+}
+
+function getCRContextPath(rootDir: string): string {
+  return path.join(rootDir, '.prev-cr-context.json')
+}
+
+export function readCRContext(rootDir: string): CRContext | null {
+  const p = getCRContextPath(rootDir)
+  if (!existsSync(p)) return null
+  try { return JSON.parse(readFileSync(p, 'utf-8')) as CRContext } catch { return null }
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
+
 export function createApprovalHandler(rootDir: string, webhookUrl?: string) {
   return async (req: Request): Promise<Response | null> => {
     const url = new URL(req.url)
@@ -70,6 +97,12 @@ export function createApprovalHandler(rootDir: string, webhookUrl?: string) {
     if (url.pathname === '/__prev/approval/all' && req.method === 'GET') {
       const store = readStore(rootDir)
       return Response.json(store)
+    }
+
+    // GET /__prev/cr-context — return current CR context (if this is a branch preview)
+    if (url.pathname === '/__prev/cr-context' && req.method === 'GET') {
+      const ctx = readCRContext(rootDir)
+      return Response.json({ context: ctx })
     }
 
     // POST /__prev/approval — update status
