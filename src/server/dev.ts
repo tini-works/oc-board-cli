@@ -16,6 +16,7 @@ import { createTokensHandler } from './routes/tokens'
 import { handleOgImageRequest } from './routes/og-image'
 import { createApprovalHandler } from './routes/approval'
 import { createBoardHandler, registerBoardWsClient } from './routes/board'
+import { createSotHandler } from './routes/sot'
 import { BoardQueueProcessor } from './board-queue'
 import { loadConfig, updateOrder } from '../config'
 import type { PrevConfig } from '../config'
@@ -144,6 +145,7 @@ export async function startDevServer(options: DevServerOptions) {
   const tokensHandler = createTokensHandler(rootDir)
   const approvalHandler = createApprovalHandler(rootDir, config?.approval?.webhookUrl)
   const boardHandler = createBoardHandler(rootDir)
+  const sotHandler = createSotHandler(rootDir)
   const queueProcessor = new BoardQueueProcessor(rootDir)
   queueProcessor.start()
   const previewRuntimePath = path.join(srcRoot, 'preview-runtime/fast-template.html')
@@ -232,6 +234,10 @@ export async function startDevServer(options: DevServerOptions) {
       // Board state endpoint
       const boardResponse = await boardHandler(req)
       if (boardResponse) return boardResponse
+
+      // SOT file listing + content
+      const sotResponse = await sotHandler(req)
+      if (sotResponse) return sotResponse
 
       // Preview bundle endpoint
       const bundleResponse = await previewBundleHandler(req)

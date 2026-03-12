@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { marked } from 'marked'
-import type { Board, ChatMessage } from '../server/routes/board'
+import type { Board as BoardState, ChatMessage } from '../server/routes/board'
 import { QueueStatus } from './QueueStatus'
 import './BoardChat.css'
 
@@ -27,92 +27,52 @@ interface StreamingMsg {
 
 interface BoardChatProps {
   boardId: string
+  board: BoardState | null
+  setBoard: (b: BoardState) => void
+  ws: React.MutableRefObject<WebSocket | null>
 }
 
-// BoardChat owns its own state — driven entirely by the SSE channel
-export function BoardChat({ boardId }: BoardChatProps) {
-  const [board, setBoard] = useState<Board | null>(null)
+// BoardChat reads board state from Board.tsx via props; WS events for streaming only
+export function BoardChat({ boardId, board, setBoard, ws }: BoardChatProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
-  // Tracks the in-progress AI response before it's committed to board.chat
   const [streaming, setStreaming] = useState<StreamingMsg | null>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const greetedRef = useRef(false)
 
-  // ── Connect to the WebSocket channel ─────────────────────────────────────
+  // ── Listen for streaming events on the shared WS ──────────────────────────
   useEffect(() => {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    let ws: WebSocket
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let dead = false
+    const wsInstance = ws.current
+    if (!wsInstance) return
 
-    function connect() {
-      ws = new WebSocket(`${protocol}//${location.host}/__prev/board/${boardId}/ws`)
-
-      ws.onmessage = (e) => {
-        try {
-          const event = JSON.parse(e.data as string)
-
-          if (event.type === 'board') {
-            setBoard(event.board)
-          }
-
-          if (event.type === 'message') {
-            setBoard(prev => {
-              if (!prev) return event.board
-              const already = prev.chat.some((m: ChatMessage) => m.id === event.message.id)
-              if (already) return prev
-              return { ...prev, chat: [...prev.chat, event.message], phase: event.board.phase }
-            })
-          }
-
-          if (event.type === 'ai_start') {
-            setSending(true)
-            setStreaming({ msgId: event.msgId, text: '' })
-          }
-
-          if (event.type === 'token') {
-            setStreaming(prev =>
-              prev?.msgId === event.msgId
-                ? { ...prev, text: prev.text + event.token }
-                : prev
-            )
-          }
-
-          if (event.type === 'ai_done') {
-            setStreaming(null)
-            setSending(false)
-            setBoard(event.board)
-          }
-
-          if (event.type === 'error') {
-            setStreaming(null)
-            setSending(false)
-          }
-        } catch { /* ignore */ }
-      }
-
-      ws.onclose = () => {
-        if (!dead) {
-          // Auto-reconnect after 1.5s
-          reconnectTimer = setTimeout(connect, 1500)
+    const handler = (e: MessageEvent) => {
+      try {
+        const event = JSON.parse(e.data as string)
+        if (event.type === 'ai_start') {
+          setSending(true)
+          setStreaming({ msgId: event.msgId, text: '' })
         }
-      }
-
-      ws.onerror = () => {
-        ws.close()
-      }
+        if (event.type === 'token') {
+          setStreaming(prev =>
+            prev?.msgId === event.msgId ? { ...prev, text: prev.text + event.token } : prev
+          )
+        }
+        if (event.type === 'ai_done') {
+          setStreaming(null)
+          setSending(false)
+          setBoard(event.board)
+        }
+        if (event.type === 'error') {
+          setStreaming(null)
+          setSending(false)
+        }
+      } catch { /* ignore */ }
     }
 
-    connect()
-
-    return () => {
-      dead = true
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      ws?.close()
-    }
-  }, [boardId])
+    wsInstance.addEventListener('message', handler)
+    return () => wsInstance.removeEventListener('message', handler)
+  }, [ws.current]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Greeting on first load ───────────────────────────────────────────────
   useEffect(() => {
