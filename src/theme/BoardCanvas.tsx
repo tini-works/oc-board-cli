@@ -50,8 +50,9 @@ async function renderMermaidInContainer(container: HTMLElement) {
 
   for (const block of codeBlocks) {
     const pre = block.parentElement as HTMLElement
-    if (!pre || pre.dataset.rendered) continue
-    pre.dataset.rendered = 'true'
+    // Use data-artifact-rendered (not data-rendered) so cleanupDiagrams() doesn't touch these
+    if (!pre || pre.dataset.artifactRendered) continue
+    pre.dataset.artifactRendered = 'true'
     const code = block.textContent || ''
     try {
       const id = 'art-mermaid-' + Math.random().toString(36).slice(2)
@@ -59,8 +60,9 @@ async function renderMermaidInContainer(container: HTMLElement) {
       const wrap = document.createElement('div')
       wrap.className = 'artifact-mermaid'
       wrap.innerHTML = svg
-      pre.style.display = 'none'
-      pre.insertAdjacentElement('afterend', wrap)
+      // Remove <pre> from DOM entirely — cleanupDiagrams() restores display on pre[data-rendered]
+      // but won't touch pre[data-artifact-rendered], so remove is safe here too
+      pre.replaceWith(wrap)
     } catch (e) {
       console.warn('Mermaid render error:', e)
     }
@@ -80,12 +82,8 @@ function FlowRenderer({ src }: { src: string }) {
 
   useEffect(() => {
     if (!html || !ref.current) return
-    // Reset previously rendered blocks so they re-render on content change
-    ref.current.querySelectorAll('pre[data-rendered]').forEach(el => {
-      delete (el as HTMLElement).dataset.rendered
-    })
-    ref.current.querySelectorAll('.artifact-mermaid').forEach(el => el.remove())
-    ref.current.querySelectorAll('pre').forEach(el => (el as HTMLElement).style.display = '')
+    // <pre> blocks are replaced with .artifact-mermaid divs on render,
+    // so no cleanup needed — just render after HTML is set
     renderMermaidInContainer(ref.current)
   }, [html])
 
@@ -93,16 +91,14 @@ function FlowRenderer({ src }: { src: string }) {
 }
 
 function ScreenRenderer({ src }: { src: string }) {
-  // SOT screens are already served as doc pages — use the route directly
-  // e.g. "screens/login.mdx" → "/screens/login"
-  const docUrl = '/' + src.replace(/\.(md|mdx)$/, '')
+  // SOT screens are doc pages — load with ?embed to strip chrome (header/toolbar/sidebar)
+  const docUrl = '/' + src.replace(/\.(md|mdx)$/, '') + '?embed'
   return (
     <iframe
       className="artifact-iframe"
       src={docUrl}
       title={src}
       loading="lazy"
-      sandbox="allow-scripts allow-same-origin"
     />
   )
 }

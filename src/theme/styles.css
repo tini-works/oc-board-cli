@@ -1145,3 +1145,13 @@ body {
 .dead-link:hover::after {
   opacity: 1;
 }
+
+/* ── Embed mode (iframe ?embed) ──────────────────────────────────────────── */
+.prev-embed-content {
+  padding: 1.5rem;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--fd-foreground);
+  background: var(--fd-background);
+  min-height: 100vh;
+}

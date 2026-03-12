@@ -138,6 +138,10 @@ function CRContextBanner() {
 }
 
 export function Layout({ tree, children }: LayoutProps) {
+  const location = useLocation()
+  // ?embed=1 — strip all chrome (header, toolbar, sidebar) for iframe use
+  const isEmbed = new URLSearchParams(location.search).has('embed')
+
   const [tocOpen, setTocOpen] = useState(false)
   const [crOpen, setCrOpen] = useState(false)
 
@@ -164,6 +168,15 @@ export function Layout({ tree, children }: LayoutProps) {
   const handleWidthToggle = () => setIsFullWidth(!isFullWidth)
   const handleTocToggle = () => { setTocOpen(!tocOpen); setCrOpen(false) }
   const handleCRToggle = () => { setCrOpen(!crOpen); setTocOpen(false) }
+
+  // Embed mode: just content, no chrome
+  if (isEmbed) {
+    return (
+      <div className="prev-embed-content">
+        {children}
+      </div>
+    )
+  }
 
   return (
     <div className="prev-layout-floating">
