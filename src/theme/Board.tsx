@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import type { Board as BoardState } from '../server/routes/board'
+import { BoardCanvas } from './BoardCanvas'
 import { BoardChat } from './BoardChat'
 import './Board.css'
 
@@ -47,9 +48,7 @@ export function Board({ boardId }: { boardId: string }) {
             </span>
           </div>
         ) : (
-          <div style={{ padding: 16, color: 'var(--fd-muted-foreground)', fontSize: 13 }}>
-            Canvas: {board.artifacts.length} artifacts (full canvas in Task 5)
-          </div>
+          <BoardCanvas board={board} onRefresh={refresh} />
         )}
       </div>
 
