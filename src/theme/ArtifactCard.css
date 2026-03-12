@@ -1,0 +1,120 @@
+.artifact-card {
+  background: var(--fd-background);
+  border: 1px solid var(--fd-border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s;
+}
+
+.artifact-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.artifact-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--fd-border);
+  cursor: grab;
+  user-select: none;
+}
+
+.artifact-card-header:active {
+  cursor: grabbing;
+}
+
+.artifact-card-drag {
+  opacity: 0.3;
+  font-size: 14px;
+}
+
+.artifact-card-title {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fd-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-card-type {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.artifact-card-type[data-type="preview"] { background: #dbeafe; color: #1e40af; }
+.artifact-card-type[data-type="c3-doc"] { background: #d1fae5; color: #065f46; }
+.artifact-card-type[data-type="flow"] { background: #fef3c7; color: #92400e; }
+
+.dark .artifact-card-type[data-type="preview"] { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.dark .artifact-card-type[data-type="c3-doc"] { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+.dark .artifact-card-type[data-type="flow"] { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+
+.artifact-card-content {
+  position: relative;
+  min-height: 200px;
+  cursor: crosshair;
+}
+
+.artifact-card-iframe {
+  width: 100%;
+  height: 300px;
+  border: none;
+  pointer-events: none;
+}
+
+.artifact-card-markdown {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow: auto;
+  max-height: 400px;
+}
+
+.artifact-card-mermaid {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.artifact-thread-dot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #7c3aed;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.artifact-thread-dot[data-status="update_requested"] { background: #f59e0b; }
+.artifact-thread-dot[data-status="proposed"] { background: #10b981; }
+
+.artifact-card-footer {
+  padding: 6px 12px;
+  border-top: 1px solid var(--fd-border);
+  font-size: 11px;
+  color: var(--fd-muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
