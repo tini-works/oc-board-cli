@@ -1,0 +1,10 @@
+kind: screen
+id: radio
+title: Public Radio Station
+description: Live radio station with now-playing, schedule, and programme info
+status: stable
+schemaVersion: "2.0"
+tags: [screen, media, radio, audio]
+states:
+  default: { description: "Live broadcast with now-playing track, programme schedule, and listener chat" }
+  offline: { description: "Station offline / between programmes" }

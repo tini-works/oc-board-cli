@@ -1,0 +1,77 @@
+import { Preview } from '@prev/theme'
+
+# Public Radio Station
+
+A full-featured live radio station page with now-playing controls, programme schedule, and listener chat.
+
+<Preview src="radio" height={800} />
+
+---
+
+## Overview
+
+The radio station screen brings together several distinct UI zones into a coherent broadcast experience:
+
+| Zone | Description |
+|------|-------------|
+| **Player** | Now-playing with animated waveform, progress bar, play/pause, and volume |
+| **Schedule** | Today's programme lineup with live indicator |
+| **Recent Tracks** | Log of music played during the current programme |
+| **Station Info** | About blurb, key facts, and membership CTA |
+| **Listener Chat** | Real-time chat panel with message input |
+| **App Banner** | Mobile app download prompt |
+
+---
+
+## Design Decisions
+
+### Dark theme with warm accent
+Public radio skews toward a late-night, intimate feel. A near-black background (`#0d1117`) with warm amber-orange (`#f97316`) as the accent avoids the sterile look of a generic media player while staying legible.
+
+### Live badge
+A pulsing green dot + "LIVE" label is used consistently (header, schedule row, now-playing card) so users never question whether the stream is active.
+
+### Waveform animation
+Animated bar graph instead of a standard progress bar for the live audio section — reinforces that something is happening in real time.
+
+### Separation of "programme" vs "track"
+Radio layers two things: the show (Morning Edition) and the song currently playing within it. The UI uses a full-width programme header card, with the current track nested inside the player — matching how listeners mentally model radio.
+
+---
+
+## Interactive States
+
+- **Play / Pause** toggles playback and freezes the waveform + progress timer
+- **Volume slider** updates in real time
+- **Chat input** accepts Enter key or Send button; new messages append to the list
+- **Progress bar** auto-advances each second while playing
+
+---
+
+## Data & Mock
+
+All data lives inline in `index.tsx`. To wire up a real stream, replace:
+
+```tsx
+// Mock track progress
+const [elapsed, setElapsed] = useState(currentTrack.elapsed)
+
+// With a real audio element ref
+const audioRef = useRef<HTMLAudioElement>(null)
+```
+
+For live schedule data, swap the `schedule` array with an API call:
+
+```tsx
+const schedule = await fetch('/api/schedule/today').then(r => r.json())
+```
+
+---
+
+## File Structure
+
+```
+previews/screens/radio/
+├── index.tsx      ← Main screen component
+└── config.yaml    ← Preview metadata
+```
