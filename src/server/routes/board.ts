@@ -140,10 +140,18 @@ export function createBoardHandler(rootDir: string) {
     const boardId = boardMatch[1]
     const subRoute = boardMatch[2] // e.g. 'chat', 'threads', 'queue', or undefined
 
+    // Sanitize board ID to prevent path traversal
+    if (!/^[a-zA-Z0-9_-]+$/.test(boardId)) {
+      return Response.json({ error: 'invalid board id' }, { status: 400 })
+    }
+
     // ── GET /__prev/board/:id — return full board state ────────────────────
     if (!subRoute && req.method === 'GET') {
       const board = readBoard(rootDir, boardId)
-      writeBoard(rootDir, board) // lazy-create on first access
+      // Lazy-create on first access only
+      if (!existsSync(boardPath(rootDir, boardId))) {
+        writeBoard(rootDir, board)
+      }
       return Response.json(board)
     }
 
