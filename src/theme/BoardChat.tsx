@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import type { Board } from '../server/routes/board'
+import { QueueStatus } from './QueueStatus'
 import './BoardChat.css'
 
 interface BoardChatProps {
@@ -89,6 +90,7 @@ export function BoardChat({ board, onRefresh }: BoardChatProps) {
         )}
       </div>
 
+      <QueueStatus boardId={board.id} />
       <div className="board-chat-input">
         <input
           type="text"

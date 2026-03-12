@@ -16,6 +16,7 @@ import { createTokensHandler } from './routes/tokens'
 import { handleOgImageRequest } from './routes/og-image'
 import { createApprovalHandler } from './routes/approval'
 import { createBoardHandler } from './routes/board'
+import { BoardQueueProcessor } from './board-queue'
 import { loadConfig, updateOrder } from '../config'
 import type { PrevConfig } from '../config'
 
@@ -143,6 +144,8 @@ export async function startDevServer(options: DevServerOptions) {
   const tokensHandler = createTokensHandler(rootDir)
   const approvalHandler = createApprovalHandler(rootDir, config?.approval?.webhookUrl)
   const boardHandler = createBoardHandler(rootDir)
+  const queueProcessor = new BoardQueueProcessor(rootDir)
+  queueProcessor.start()
   const previewRuntimePath = path.join(srcRoot, 'preview-runtime/fast-template.html')
 
   const server = Bun.serve({
@@ -334,6 +337,7 @@ export async function startDevServer(options: DevServerOptions) {
     stop: () => {
       if (rebuildTimer) clearTimeout(rebuildTimer)
       watchers.forEach(w => w.close())
+      queueProcessor.stop()
       server.stop()
     },
   }

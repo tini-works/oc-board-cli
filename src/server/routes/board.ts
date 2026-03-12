@@ -290,6 +290,18 @@ export function createBoardHandler(rootDir: string) {
       return Response.json(board)
     }
 
+    // ── GET /__prev/board/:id/queue-status — queue status summary ──────────
+    if (req.method === 'GET' && subRoute === 'queue-status') {
+      const board = readBoard(rootDir, boardId)
+      const q = board.queue
+      return Response.json({
+        pending: q.filter(t => t.status === 'pending').length,
+        in_progress: q.filter(t => t.status === 'in_progress').length,
+        done: q.filter(t => t.status === 'done').length,
+        failed: q.filter(t => t.status === 'failed').length,
+      })
+    }
+
     return null // unmatched sub-route or method
   }
 }
