@@ -22,11 +22,11 @@ function useBoard(boardId: string) {
       .catch(() => {})
   }
 
-  return { board, loading, refresh }
+  return { board, loading, refresh, setBoard }
 }
 
 export function Board({ boardId }: { boardId: string }) {
-  const { board, loading, refresh } = useBoard(boardId)
+  const { board, loading, refresh, setBoard } = useBoard(boardId)
 
   if (loading) return <div className="board-loading">Loading board...</div>
   if (!board) return <div className="board-loading">Board not found</div>
