@@ -7,3 +7,4 @@ dist/
 .DS_Store
 prev-cli-*.tgz
 .prev-debug
+.prev-boards/
