@@ -229,20 +229,19 @@ function buildA2UIRenderer(src: string, _rootDir: string): string {
         // ── Form elements ────────────────────────────────────────────────────
         TextField: {
           container: {},
-          // dark: bg = --nv-10 = #1F292D, radius 8px
           element: { 'color-bgc-nv90': true, 'border-br-2': true, 'typography-f-s': true },
           label: { 'typography-f-s': true, 'color-c-n40': true },
         },
         CheckBox: {
           container: {},
-          // dark: border = --p-60 = teal-300
           element: { 'color-bc-p40': true, 'border-bw-2': true, 'border-bs-s': true, 'border-br-1': true },
           label: { 'typography-f-s': true },
         },
         Slider: {
           container: {},
           element: { 'color-bc-p40': true },
-          label: {},
+          // Slider always renders a <span> with the raw number value; make it subtle
+          label: { 'typography-sz-ls': true, 'color-c-n40': true },
         },
         MultipleChoice: {
           container: {},
@@ -327,33 +326,35 @@ function buildA2UIRenderer(src: string, _rootDir: string): string {
       },
 
       // ── Inline styles (CSSStyleDeclaration format) ───────────────────────
-      // Used for properties not covered by structural classes (font-size, letter-spacing, etc.)
-      // Text.additionalStyles can be a per-hint object.
       additionalStyles: {
-        // Per-hint typography from design tokens (DM Sans optical sizing, tight tracking)
+        // Per-hint typography from design tokens
         Text: {
-          h1:      { fontSize: '1.75rem', lineHeight: '1.35', letterSpacing: '-0.02em' },
-          h2:      { fontSize: '1.5rem',  lineHeight: '1.35', letterSpacing: '-0.02em' },
+          h1:      { fontSize: '1.75rem', lineHeight: '1.35',  letterSpacing: '-0.02em' },
+          h2:      { fontSize: '1.5rem',  lineHeight: '1.35',  letterSpacing: '-0.02em' },
           h3:      { fontSize: '1.25rem', lineHeight: '1.375', letterSpacing: '-0.01em' },
-          h4:      { fontSize: '1.125rem', lineHeight: '1.5',  letterSpacing: '-0.01em' },
+          h4:      { fontSize: '1.125rem',lineHeight: '1.5',   letterSpacing: '-0.01em' },
           h5:      { fontSize: '1rem',    lineHeight: '1.5',   letterSpacing: '0' },
           body:    { fontSize: '1rem',    lineHeight: '1.5',   letterSpacing: '0' },
           caption: { fontSize: '0.75rem', lineHeight: '1.4',   letterSpacing: '0.02em' },
         },
-        // Button padding + transition
+        // Button: NO width:100% — let the <button> size to its content.
+        // The host has flex:1 from the parent, but the visible element auto-sizes.
         Button: {
-          padding: '12px 20px',
+          padding: '10px 18px',
           letterSpacing: '-0.01em',
           transition: 'opacity 150ms ease',
-          width: '100%',
-          justifyContent: 'center',
         },
-        // Card padding using token spacing-5 (1.25rem)
+        // Card: padding only — no flex overrides (Card source uses ::slotted height:100%)
         Card: {
-          padding: '20px',
-          gap: '16px',
-          display: 'flex',
-          flexDirection: 'column',
+          padding: '16px 20px',
+        },
+        // Row: critical — source has NO gap, children pack without spacing
+        Row: {
+          gap: '8px',
+        },
+        // Column: critical — source has NO gap, items stack without breathing room
+        Column: {
+          gap: '10px',
         },
       },
     }
