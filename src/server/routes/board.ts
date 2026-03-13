@@ -205,15 +205,14 @@ function buildAgentContext(board: Board, agentId: string): string {
 
 async function generateAIResponse(rootDir: string, boardId: string, chatHistory: ChatMessage[], agentId = 'board') {
   const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
-  const gatewayHost = 'host.docker.internal'
-  const gatewayPort = 18789
+  const gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
+  const gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
 
-  const board = chatHistory.length > 0
-    ? { id: boardId, sot: undefined, phase: 'discussing' as BoardPhase, chat: chatHistory, artifacts: [], threads: [], queue: [] } as Board
-    : { id: boardId, sot: undefined, phase: 'discussing' as BoardPhase, chat: [], artifacts: [], threads: [], queue: [] } as Board
+  // Read full board state for specialist agents — they need sot, artifacts, threads
+  const fullBoard = agentId !== 'board' ? readBoard(rootDir, boardId) : null
 
   // For specialist agents, prepend enriched board context as system message
-  const contextMsg = agentId !== 'board' ? buildAgentContext(board, agentId) : null
+  const contextMsg = fullBoard ? buildAgentContext(fullBoard, agentId) : null
 
   const messages = [
     ...(contextMsg ? [{ role: 'system', content: `Board context:\n${contextMsg}` }] : []),
@@ -230,7 +229,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${gatewayToken}`,
-        'x-openclaw-agent-id': 'board',
+        'x-openclaw-agent-id': agentId,
       },
       body: JSON.stringify({
         model: `openclaw:${agentId}`,
