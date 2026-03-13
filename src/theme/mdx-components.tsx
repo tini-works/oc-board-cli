@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link } from '@tanstack/react-router'
 import { Preview } from './Preview'
+import { A2UIPreview } from './A2UIPreview'
 import { pages } from 'virtual:prev-pages'
 
 // Get valid routes from pages
@@ -106,6 +107,7 @@ function MdxTable({ children, ...props }: React.TableHTMLAttributes<HTMLTableEle
 
 export const mdxComponents = {
   Preview,
+  A2UIPreview,
   a: MdxLink,
   table: MdxTable,
 }
