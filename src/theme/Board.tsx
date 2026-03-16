@@ -31,6 +31,17 @@ function useBoardChannel(boardId: string, started: boolean) {
             setBoard(prev => {
               if (!prev) return event.board
               if (prev.chat.some((m: ChatMessage) => m.id === event.message.id)) return prev
+              // Skip if an optimistic message with same author+text already exists
+              if (prev.chat.some((m: ChatMessage) => m.author === event.message.author && m.text === event.message.text)) {
+                // Replace the optimistic message id with the server id
+                return {
+                  ...prev,
+                  chat: prev.chat.map((m: ChatMessage) =>
+                    m.author === event.message.author && m.text === event.message.text ? event.message : m
+                  ),
+                  phase: event.board.phase,
+                }
+              }
               return { ...prev, chat: [...prev.chat, event.message], phase: event.board.phase }
             })
           }

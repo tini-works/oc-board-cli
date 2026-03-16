@@ -156,6 +156,7 @@ function buildAgentContext(board: Board, agentId: string): string {
 }
 
 async function generateAIResponse(rootDir: string, boardId: string, chatHistory: ChatMessage[], agentId = 'board') {
+  const gatewayProto = process.env.OPENCLAW_GATEWAY_PROTO || 'http'
   const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
   const gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
   const gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
@@ -176,7 +177,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
 
   let response: Response
   try {
-    response = await fetch(`http://${gatewayHost}:${gatewayPort}/v1/chat/completions`, {
+    response = await fetch(`${gatewayProto}://${gatewayHost}:${gatewayPort}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -184,7 +185,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
         'x-openclaw-agent-id': agentId,
       },
       body: JSON.stringify({
-        model: `openclaw:${agentId}`,
+        model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
         stream: true,
         messages: agentId === 'board'
           ? [{ role: 'system', content: SYSTEM_PROMPT }, ...messages]

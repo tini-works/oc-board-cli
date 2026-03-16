@@ -67,6 +67,7 @@ export class BoardQueueProcessor {
   private rootDir: string
   private broadcast: (boardId: string, event: object) => void
   private timer: ReturnType<typeof setInterval> | null = null
+  private gatewayProto: string
   private gatewayHost: string
   private gatewayPort: number
   private gatewayToken: string
@@ -80,6 +81,7 @@ export class BoardQueueProcessor {
   ) {
     this.rootDir = rootDir
     this.broadcast = broadcast
+    this.gatewayProto = process.env.OPENCLAW_GATEWAY_PROTO || 'http'
     this.gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
     this.gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
     this.gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
@@ -223,7 +225,7 @@ export class BoardQueueProcessor {
     let response: Response
     try {
       response = await fetch(
-        `http://${this.gatewayHost}:${this.gatewayPort}/v1/chat/completions`,
+        `${this.gatewayProto}://${this.gatewayHost}:${this.gatewayPort}/v1/chat/completions`,
         {
           method: 'POST',
           headers: {
@@ -232,7 +234,7 @@ export class BoardQueueProcessor {
             'x-openclaw-agent-id': agentId,
           },
           body: JSON.stringify({
-            model: `openclaw:${agentId}`,
+            model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
             stream: true,
             messages: [{ role: 'user', content: userMessage }],
           }),
