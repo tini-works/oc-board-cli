@@ -6,7 +6,7 @@ import './BoardCanvas.css'
 
 marked.use({ breaks: true, gfm: true })
 
-const TYPE_ICON: Record<string, string> = { flow: '⇢', screen: '▣', doc: '📄', ref: '📎', preview: '⬡', a2ui: '✦' }
+const TYPE_ICON: Record<string, string> = { flow: '\u21e2', screen: '\u25a3', doc: '\ud83d\udcc4', ref: '\ud83d\udcce', preview: '\u2b21', a2ui: '\u2726' }
 const TYPE_LABEL: Record<string, string> = { flow: 'Flow', screen: 'Screen', doc: 'Doc', ref: 'Ref', preview: 'Preview', a2ui: 'A2UI' }
 
 const CARD_W = 380
@@ -29,6 +29,7 @@ function autoPosition(index: number, cursors: number[]) {
 
 // ── Mermaid / D2 — bake SVGs into HTML string before setting state ────────────
 // This avoids post-render DOM mutation which React can clobber on re-render.
+// Note: Content is from server-side SOT files (trusted), not user input.
 
 let mermaidInitialized = false
 
@@ -104,6 +105,8 @@ async function injectDiagramSvgs(rawHtml: string): Promise<string> {
 }
 
 // ── Content renderers ─────────────────────────────────────────────────────────
+// Note: dangerouslySetInnerHTML is used intentionally here — content comes from
+// server-side SOT markdown files (trusted internal content), not user input.
 
 // F8 fix: add cancellation flag to prevent stale async updates
 function DocRenderer({ src }: { src: string }) {
@@ -172,10 +175,11 @@ function A2UIRenderer({ src, fillHeight }: { src: string; fillHeight: boolean })
 const CARD_MIN_W = 240
 const CARD_MIN_H = 80
 
-// ── Artifact card (draggable + resizable) ────────────────────────────────────
+// ── Artifact card (draggable + resizable) — P5 fix: wrapped in React.memo ────
 
 interface ArtifactCardProps {
   artifact: Artifact
+  position: { x: number; y: number }
   zoom: number
   localSize: { w: number; h: number } | null
   onDragStart: (id: string, e: React.MouseEvent) => void
@@ -183,7 +187,9 @@ interface ArtifactCardProps {
   onRemove: (id: string) => void
 }
 
-function ArtifactCard({ artifact, zoom, localSize, onDragStart, onResizeStart, onRemove }: ArtifactCardProps) {
+const ArtifactCard = React.memo(function ArtifactCard({
+  artifact, position, zoom, localSize, onDragStart, onResizeStart, onRemove,
+}: ArtifactCardProps) {
   const typeMap: Record<string, string> = { 'c3-doc': 'doc', flow: 'flow', screen: 'screen', preview: 'preview', ref: 'ref' }
   const displayType = typeMap[artifact.type] ?? artifact.type
   const title = artifact.title || artifact.source.split('/').pop()?.replace(/\.(md|mdx)$/, '') || artifact.id
@@ -197,10 +203,9 @@ function ArtifactCard({ artifact, zoom, localSize, onDragStart, onResizeStart, o
       data-artifact-id={artifact.id}
       style={{
         position: 'absolute',
-        left: artifact.x,
-        top: artifact.y,
+        left: position.x,
+        top: position.y,
         width: w,
-        // h > 0 means user set an explicit height — content scrolls inside
         ...(h ? { height: h, overflow: 'hidden' } : {}),
       }}
     >
@@ -209,8 +214,8 @@ function ArtifactCard({ artifact, zoom, localSize, onDragStart, onResizeStart, o
         className="artifact-card-header"
         onMouseDown={e => { e.preventDefault(); onDragStart(artifact.id, e) }}
       >
-        <span className="artifact-card-drag">⠿</span>
-        <span className="artifact-card-icon">{TYPE_ICON[displayType] ?? '📄'}</span>
+        <span className="artifact-card-drag">{'\u2807'}</span>
+        <span className="artifact-card-icon">{TYPE_ICON[displayType] ?? '\ud83d\udcc4'}</span>
         <span className="artifact-card-title" title={artifact.source}>{title}</span>
         <span className="artifact-card-type" data-type={artifact.type}>
           {TYPE_LABEL[displayType] ?? artifact.type}
@@ -220,22 +225,21 @@ function ArtifactCard({ artifact, zoom, localSize, onDragStart, onResizeStart, o
           onMouseDown={e => e.stopPropagation()}
           onClick={() => onRemove(artifact.id)}
           title="Remove"
-        >×</button>
+        >{'\u00d7'}</button>
       </div>
 
-      {/* Content — pointer-events passthrough to allow scrolling */}
+      {/* Content */}
       <div
         className="artifact-card-content"
         style={{
           pointerEvents: zoom > 0.5 ? 'auto' : 'none',
-          // When height is explicit, content area scrolls
           ...(h ? { flex: 1, overflowY: 'auto', minHeight: 0 } : {}),
         }}
       >
         {(artifact.type === 'c3-doc' || artifact.type === 'ref') && <DocRenderer src={artifact.source} />}
         {artifact.type === 'flow' && <FlowRenderer src={artifact.source} />}
-        {(artifact.type as any) === 'screen' && <ScreenRenderer src={artifact.source} fillHeight={!!h} />}
-        {(artifact.type as any) === 'a2ui' && <A2UIRenderer src={artifact.source} fillHeight={!!h} />}
+        {artifact.type === 'screen' && <ScreenRenderer src={artifact.source} fillHeight={!!h} />}
+        {artifact.type === 'a2ui' && <A2UIRenderer src={artifact.source} fillHeight={!!h} />}
         {artifact.type === 'preview' && (
           <iframe
             className={`artifact-iframe${h ? ' artifact-iframe--fill' : ''}`}
@@ -254,21 +258,34 @@ function ArtifactCard({ artifact, zoom, localSize, onDragStart, onResizeStart, o
       />
     </div>
   )
-}
+})
 
-// ── SOT Browser sidebar ───────────────────────────────────────────────────────
+// ── SOT Browser sidebar — P4 fix: module-level cache ──────────────────────────
+
+let sotCache: { files: SotFile[]; ts: number } | null = null
+const SOT_CACHE_TTL = 30_000
 
 function SotBrowser({ onAdd, collapsed, onToggle }: {
   onAdd: (f: SotFile) => void
   collapsed: boolean
   onToggle: () => void
 }) {
-  const [files, setFiles] = useState<SotFile[]>([])
+  const [files, setFiles] = useState<SotFile[]>(sotCache?.files ?? [])
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'all' | 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui'>('all')
 
   useEffect(() => {
-    fetch('/__prev/sot/list').then(r => r.json()).then(setFiles).catch(() => {})
+    if (sotCache && Date.now() - sotCache.ts < SOT_CACHE_TTL) {
+      setFiles(sotCache.files)
+      return
+    }
+    fetch('/__prev/sot/list')
+      .then(r => r.json())
+      .then((data: SotFile[]) => {
+        sotCache = { files: data, ts: Date.now() }
+        setFiles(data)
+      })
+      .catch(() => {})
   }, [])
 
   const filtered = files.filter(f =>
@@ -279,7 +296,7 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
   if (collapsed) {
     return (
       <div className="sot-browser sot-collapsed" onClick={onToggle} title="Open SOT browser">
-        <span className="sot-collapsed-label">◀ SOT</span>
+        <span className="sot-collapsed-label">{'\u25c0'} SOT</span>
         <span className="sot-browser-count">{files.length}</span>
       </div>
     )
@@ -290,10 +307,10 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
       <div className="sot-browser-header">
         <span className="sot-browser-title">SOT Files</span>
         <span className="sot-browser-count">{files.length}</span>
-        <button className="sot-collapse-btn" onClick={onToggle} title="Collapse">◀</button>
+        <button className="sot-collapse-btn" onClick={onToggle} title="Collapse">{'\u25c0'}</button>
       </div>
 
-      <input className="sot-browser-search" placeholder="Search…" value={search} onChange={e => setSearch(e.target.value)} />
+      <input className="sot-browser-search" placeholder={'Search\u2026'} value={search} onChange={e => setSearch(e.target.value)} />
 
       <div className="sot-browser-tabs">
         {(['all', 'a2ui', 'flow', 'screen', 'doc', 'ref'] as const).map(t => (
@@ -307,7 +324,7 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
         {filtered.length === 0 && <div className="sot-empty">No files</div>}
         {filtered.map(f => (
           <div key={f.path} className="sot-file-row" onClick={() => onAdd(f)} title={f.path}>
-            <span className="sot-file-icon">{TYPE_ICON[f.type] ?? '📄'}</span>
+            <span className="sot-file-icon">{TYPE_ICON[f.type] ?? '\ud83d\udcc4'}</span>
             <div className="sot-file-info">
               <span className="sot-file-title">{f.title}</span>
               <span className="sot-file-path">{f.path}</span>
@@ -334,9 +351,9 @@ function ZoomControls({ zoom, onZoom, onFit, onReset }: {
       <button className="zoom-label" onClick={onReset} title="Reset zoom">
         {Math.round(zoom * 100)}%
       </button>
-      <button className="zoom-btn" onClick={() => onZoom(-0.15)} title="Zoom out">−</button>
+      <button className="zoom-btn" onClick={() => onZoom(-0.15)} title="Zoom out">{'\u2212'}</button>
       <div className="zoom-divider" />
-      <button className="zoom-btn zoom-fit" onClick={onFit} title="Fit all">⊡</button>
+      <button className="zoom-btn zoom-fit" onClick={onFit} title="Fit all">{'\u22a1'}</button>
     </div>
   )
 }
@@ -389,6 +406,13 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
   boardRef.current = board
   const localPositionsRef = useRef(localPositions)
   localPositionsRef.current = localPositions
+  // F3 fix: pan ref to avoid stale closure in handleCanvasMouseDown
+  const panRef = useRef(pan)
+  panRef.current = pan
+  // I1 fix: RAF ref for batching mouse moves
+  const rafRef = useRef<number | null>(null)
+  // I1 fix: pending pan value during RAF batching
+  const pendingPan = useRef<{ x: number; y: number } | null>(null)
 
   // F3 fix: reset placement cursors when board changes
   useEffect(() => {
@@ -423,34 +447,28 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
-  // ── Mouse move / up (global) ──────────────────────────────────────────────
+  // ── Mouse move / up (global) — I1 fix: RAF-batched state updates ────────
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
-      // Resize artifact
+      // Resize artifact — update ref immediately, batch state via RAF
       if (resizing.current) {
         const dx = (e.clientX - resizing.current.startMouse.x) / zoom
         const dy = (e.clientY - resizing.current.startMouse.y) / zoom
         const newW = Math.max(CARD_MIN_W, resizing.current.startSize.w + dx)
         const newH = Math.max(CARD_MIN_H, resizing.current.startSize.h + dy)
         resizing.current.current = { w: newW, h: newH }
-        setLocalSizes(prev => ({
-          ...prev,
-          [resizing.current!.artifactId]: { w: newW, h: newH },
-        }))
+        scheduleRaf()
         return
       }
 
-      // Drag artifact
+      // Drag artifact — update ref immediately, batch state via RAF
       if (dragging.current) {
         const dx = (e.clientX - dragging.current.startMouse.x) / zoom
         const dy = (e.clientY - dragging.current.startMouse.y) / zoom
         const newX = Math.max(0, dragging.current.startPos.x + dx)
         const newY = Math.max(0, dragging.current.startPos.y + dy)
         dragging.current.current = { x: newX, y: newY }
-        setLocalPositions(prev => ({
-          ...prev,
-          [dragging.current!.artifactId]: { x: newX, y: newY },
-        }))
+        scheduleRaf()
         return
       }
 
@@ -458,15 +476,46 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
       if (panning.current) {
         const dx = e.clientX - panning.current.startMouse.x
         const dy = e.clientY - panning.current.startMouse.y
-        setPan({
+        pendingPan.current = {
           x: panning.current.startPan.x + dx,
           y: panning.current.startPan.y + dy,
+        }
+        scheduleRaf()
+      }
+    }
+
+    function scheduleRaf() {
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = null
+          if (dragging.current) {
+            setLocalPositions(prev => ({
+              ...prev,
+              [dragging.current!.artifactId]: dragging.current!.current,
+            }))
+          }
+          if (resizing.current) {
+            setLocalSizes(prev => ({
+              ...prev,
+              [resizing.current!.artifactId]: resizing.current!.current,
+            }))
+          }
+          if (pendingPan.current) {
+            setPan(pendingPan.current)
+            pendingPan.current = null
+          }
         })
       }
     }
 
     const onUp = async () => {
-      // Save artifact size on resize end
+      // Cancel any pending RAF
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+
+      // Save artifact size on resize end — F4 fix: per-artifact PATCH
       if (resizing.current) {
         const { artifactId, current } = resizing.current
         resizing.current = null
@@ -474,30 +523,22 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
         // F7 fix: clear local size override so WS updates are not shadowed
         setLocalSizes(prev => { const next = { ...prev }; delete next[artifactId]; return next })
 
-        const currentBoard = boardRef.current
-        if (currentBoard) {
-          const updated = currentBoard.artifacts.map(a =>
-            a.id === artifactId
-              ? { ...a, w: Math.round(current.w), h: Math.round(current.h) }
-              : a
-          )
-          await fetch(`/__prev/board/${boardId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ artifacts: updated }),
-          })
-          // F5 fix: functional updater to avoid overwriting concurrent WS updates
-          onBoardUpdate(prev => {
-            if (!prev) return prev
-            return { ...prev, artifacts: prev.artifacts.map(a =>
-              a.id === artifactId ? { ...a, w: Math.round(current.w), h: Math.round(current.h) } : a
-            )}
-          })
-        }
+        await fetch(`/__prev/board/${boardId}/artifact/${artifactId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ w: Math.round(current.w), h: Math.round(current.h) }),
+        })
+        // F5 fix: functional updater to avoid overwriting concurrent WS updates
+        onBoardUpdate(prev => {
+          if (!prev) return prev
+          return { ...prev, artifacts: prev.artifacts.map(a =>
+            a.id === artifactId ? { ...a, w: Math.round(current.w), h: Math.round(current.h) } : a
+          )}
+        })
       }
       resizing.current = null
 
-      // Save artifact position on drag end
+      // Save artifact position on drag end — F4 fix: per-artifact PATCH
       if (dragging.current) {
         const { artifactId, current } = dragging.current
         dragging.current = null
@@ -505,26 +546,26 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
         // Clear local position override after persist
         setLocalPositions(prev => { const next = { ...prev }; delete next[artifactId]; return next })
 
-        const currentBoard = boardRef.current
-        if (currentBoard) {
-          const updated = currentBoard.artifacts.map(a =>
+        await fetch(`/__prev/board/${boardId}/artifact/${artifactId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x: Math.round(current.x), y: Math.round(current.y) }),
+        })
+        // F5 fix: functional updater
+        onBoardUpdate(prev => {
+          if (!prev) return prev
+          return { ...prev, artifacts: prev.artifacts.map(a =>
             a.id === artifactId ? { ...a, x: Math.round(current.x), y: Math.round(current.y) } : a
-          )
-          await fetch(`/__prev/board/${boardId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ artifacts: updated }),
-          })
-          // F5 fix: functional updater
-          onBoardUpdate(prev => {
-            if (!prev) return prev
-            return { ...prev, artifacts: prev.artifacts.map(a =>
-              a.id === artifactId ? { ...a, x: Math.round(current.x), y: Math.round(current.y) } : a
-            )}
-          })
-        }
+          )}
+        })
       }
       dragging.current = null
+
+      // Flush pending pan
+      if (pendingPan.current) {
+        setPan(pendingPan.current)
+        pendingPan.current = null
+      }
       panning.current = null
       document.body.style.cursor = ''
     }
@@ -536,6 +577,10 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
       window.removeEventListener('mouseup', onUp)
       // F10 fix: reset cursor on cleanup (unmount during drag)
       document.body.style.cursor = ''
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
     }
   }, [zoom, boardId, onBoardUpdate])
 
@@ -572,39 +617,35 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
     }
   }, [])
 
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+  // F3 fix: use panRef to avoid stale closure
+  const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     // Pan on canvas background click (not on cards)
     if ((e.target as HTMLElement).closest('.artifact-card')) return
     panning.current = {
       startMouse: { x: e.clientX, y: e.clientY },
-      startPan: { ...pan },
+      startPan: { ...panRef.current },
     }
     document.body.style.cursor = 'grab'
-  }
+  }, [])
 
-  const handleRemove = async (artifactId: string) => {
-    const currentBoard = boardRef.current
-    if (!currentBoard) return
-    const updated = currentBoard.artifacts.filter(a => a.id !== artifactId)
-    await fetch(`/__prev/board/${boardId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifacts: updated }),
-    })
+  // P5 fix: stable callback for React.memo
+  const handleRemove = useCallback(async (artifactId: string) => {
+    // F4 fix: per-artifact DELETE
+    await fetch(`/__prev/board/${boardId}/artifact/${artifactId}`, { method: 'DELETE' })
     // F5 fix: functional updater
     onBoardUpdate(prev => prev ? { ...prev, artifacts: prev.artifacts.filter(a => a.id !== artifactId) } : prev)
     setLocalPositions(p => { const next = { ...p }; delete next[artifactId]; return next })
     // F9 fix: also clear localSizes and cardSizes for removed artifact
     setLocalSizes(s => { const next = { ...s }; delete next[artifactId]; return next })
     delete cardSizes.current[artifactId]
-  }
+  }, [boardId, onBoardUpdate])
 
   const handleAddFile = (file: SotFile) => {
     const index = board?.artifacts.length ?? 0
     // F3 fix: use instance-scoped cursors
     const pos = autoPosition(index, colCursorsRef.current)
     const typeMap: Record<string, Artifact['type']> = {
-      flow: 'flow', screen: 'screen' as any, doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui' as any,
+      flow: 'flow', screen: 'screen', doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui',
     }
     // A2UI screens get a taller default h so they show content immediately
     const defaultH = file.type === 'a2ui' ? 520 : 0
@@ -696,17 +737,17 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
         >
           {artifacts.length === 0 && (
             <div className="canvas-empty-hint" style={{ position: 'absolute', left: 120, top: 80, pointerEvents: 'none' }}>
-              <span style={{ fontSize: 32, opacity: 0.15 }}>◻</span>
+              <span style={{ fontSize: 32, opacity: 0.15 }}>{'\u25fb'}</span>
               <span style={{ opacity: 0.3, fontSize: 13 }}>Click a file in the SOT browser to pin it here</span>
             </div>
           )}
           {artifacts.map(artifact => {
             const pos = getPos(artifact)
-            const withPos = { ...artifact, x: pos.x, y: pos.y }
             return (
               <ArtifactCard
                 key={artifact.id}
-                artifact={withPos}
+                artifact={artifact}
+                position={pos}
                 zoom={zoom}
                 localSize={localSizes[artifact.id] ?? null}
                 onDragStart={handleDragStart}

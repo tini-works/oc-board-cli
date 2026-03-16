@@ -1,27 +1,8 @@
-import path from 'path'
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
+import { uid, boardsDir, readBoard, writeBoard } from './board-utils'
 import type { Board, GenerationTask, ChatMessage } from './routes/board'
 
-function boardsDir(rootDir: string): string {
-  return path.join(rootDir, '.prev-boards')
-}
-
-function readBoard(rootDir: string, boardId: string): Board | null {
-  const p = path.join(boardsDir(rootDir), `${boardId}.json`)
-  if (!existsSync(p)) return null
-  try { return JSON.parse(readFileSync(p, 'utf-8')) } catch { return null }
-}
-
-function writeBoard(rootDir: string, board: Board): void {
-  const p = path.join(boardsDir(rootDir), `${board.id}.json`)
-  writeFileSync(p, JSON.stringify(board, null, 2), 'utf-8')
-}
-
-function uid(): string {
-  return Math.random().toString(36).slice(2, 10)
-}
-
-// ── Task → agent routing ──────────────────────────────────────────────────────
+// ── Task -> agent routing ──────────────────────────────────────────────────────
 
 function agentIdForTask(task: GenerationTask): string {
   return task.type === 'update' ? 'sot-editor' : 'sot-scribe'
@@ -79,6 +60,9 @@ function buildTaskMessage(board: Board, task: GenerationTask): string {
 
 // ── Queue processor ───────────────────────────────────────────────────────────
 
+const POLL_INTERVAL = 2000
+const FULL_SCAN_INTERVAL = 30_000 // fallback full scan every 30s
+
 export class BoardQueueProcessor {
   private rootDir: string
   private broadcast: (boardId: string, event: object) => void
@@ -86,6 +70,9 @@ export class BoardQueueProcessor {
   private gatewayHost: string
   private gatewayPort: number
   private gatewayToken: string
+  // P2 fix: track boards with pending tasks to avoid scanning all files
+  private pendingBoardIds = new Set<string>()
+  private lastFullScan = 0
 
   constructor(
     rootDir: string,
@@ -96,6 +83,11 @@ export class BoardQueueProcessor {
     this.gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
     this.gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
     this.gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
+  }
+
+  /** Notify the processor that a board has pending tasks */
+  notifyPending(boardId: string): void {
+    this.pendingBoardIds.add(boardId)
   }
 
   /** Reset any in_progress tasks back to pending (idempotent restart) */
@@ -116,7 +108,12 @@ export class BoardQueueProcessor {
         }
       }
       if (changed) writeBoard(this.rootDir, board)
+      // Populate pending set from existing boards with pending tasks
+      if (board.queue.some(t => t.status === 'pending')) {
+        this.pendingBoardIds.add(boardId)
+      }
     }
+    this.lastFullScan = Date.now()
   }
 
   /** Pick next pending task for a board (FIFO), mark it in_progress */
@@ -175,13 +172,15 @@ export class BoardQueueProcessor {
     if (task.retries < 2) {
       task.status = 'pending'
       task.started_at = undefined
+      // Re-add to pending set for retry
+      this.pendingBoardIds.add(boardId)
     } else {
       task.status = 'failed'
       task.completed_at = new Date().toISOString()
       board.chat.push({
         id: `msg-err-${task.id}`,
         author: 'openclaw',
-        text: `⚠️ Task \`${task.id}\` failed after retry. Please try again or modify your request.`,
+        text: `\u26a0\ufe0f Task \`${task.id}\` failed after retry. Please try again or modify your request.`,
         ts: new Date().toISOString(),
       })
     }
@@ -213,7 +212,7 @@ export class BoardQueueProcessor {
     const startMsg: ChatMessage = {
       id: uid(),
       author: 'openclaw',
-      text: `🔄 **${agentId === 'sot-scribe' ? '@sot-scribe' : '@sot-editor'}** is working on task \`${task.id}\`...`,
+      text: `\ud83d\udd04 **${agentId === 'sot-scribe' ? '@sot-scribe' : '@sot-editor'}** is working on task \`${task.id}\`...`,
       ts: new Date().toISOString(),
     }
     board.chat.push(startMsg)
@@ -305,25 +304,40 @@ export class BoardQueueProcessor {
     this.completeTask(boardId, task.id)
   }
 
-  /** Start the polling loop */
+  /** Start the polling loop — P2 fix: only check boards with known pending tasks */
   start(): void {
     this.init()
     this.timer = setInterval(() => {
-      const dir = boardsDir(this.rootDir)
-      if (!existsSync(dir)) return
-      for (const file of readdirSync(dir)) {
-        if (!file.endsWith('.json')) continue
-        const boardId = file.replace('.json', '')
+      // Periodic fallback: full scan every 30s to catch missed boards
+      if (Date.now() - this.lastFullScan > FULL_SCAN_INTERVAL) {
+        this.lastFullScan = Date.now()
+        const dir = boardsDir(this.rootDir)
+        if (existsSync(dir)) {
+          for (const file of readdirSync(dir)) {
+            if (!file.endsWith('.json')) continue
+            const boardId = file.replace('.json', '')
+            const board = readBoard(this.rootDir, boardId)
+            if (board?.queue.some(t => t.status === 'pending')) {
+              this.pendingBoardIds.add(boardId)
+            }
+          }
+        }
+      }
+
+      // Only process boards we know have pending tasks
+      for (const boardId of [...this.pendingBoardIds]) {
         const task = this.pickNextTask(boardId)
         if (task) {
-          // Fire-and-forget: processTask handles its own error/complete lifecycle
           this.processTask(boardId, task).catch(err => {
             console.error(`[board-queue] task ${task.id} failed:`, err)
             this.failTask(boardId, task.id)
           })
+        } else {
+          // No pending tasks found — remove from tracked set
+          this.pendingBoardIds.delete(boardId)
         }
       }
-    }, 2000)
+    }, POLL_INTERVAL)
   }
 
   /** Stop the polling loop */

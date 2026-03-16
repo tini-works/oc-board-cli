@@ -1,26 +1,18 @@
-import React, { useState, useEffect } from 'react'
-import type { Board } from '../server/routes/board'
+import { useState, useEffect } from 'react'
 
 interface QueueStatusProps {
   boardId: string
 }
 
+// F6 fix: use the dedicated queue-status endpoint instead of fetching the full board
 export function QueueStatus({ boardId }: QueueStatusProps) {
   const [status, setStatus] = useState({ pending: 0, in_progress: 0, done: 0, failed: 0 })
 
   useEffect(() => {
     const poll = () => {
-      fetch(`/__prev/board/${boardId}`)
+      fetch(`/__prev/board/${boardId}/queue-status`)
         .then(r => r.json())
-        .then((board: Board) => {  // flat response
-          const q = board.queue
-          setStatus({
-            pending: q.filter(t => t.status === 'pending').length,
-            in_progress: q.filter(t => t.status === 'in_progress').length,
-            done: q.filter(t => t.status === 'done').length,
-            failed: q.filter(t => t.status === 'failed').length,
-          })
-        })
+        .then(setStatus)
         .catch(() => {})
     }
     poll()
@@ -43,9 +35,9 @@ export function QueueStatus({ boardId }: QueueStatusProps) {
       gap: 8,
       background: 'var(--fd-muted)',
     }}>
-      {status.in_progress > 0 && <span>⚙️ {status.in_progress} in progress</span>}
-      {status.pending > 0 && <span>⏳ {status.pending} pending</span>}
-      {status.failed > 0 && <span style={{ color: '#ef4444' }}>❌ {status.failed} failed</span>}
+      {status.in_progress > 0 && <span>{'\u2699\ufe0f'} {status.in_progress} in progress</span>}
+      {status.pending > 0 && <span>{'\u23f3'} {status.pending} pending</span>}
+      {status.failed > 0 && <span style={{ color: '#ef4444' }}>{'\u274c'} {status.failed} failed</span>}
     </div>
   )
 }

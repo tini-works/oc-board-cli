@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { marked } from 'marked'
 import type { Board as BoardState, ChatMessage } from '../server/routes/board'
 import { QueueStatus } from './QueueStatus'
@@ -10,8 +10,13 @@ function uid() {
   return Math.random().toString(36).slice(2, 10)
 }
 
+// P6 fix: memoize marked.parse() so it only re-runs when text changes
+// Security note: dangerouslySetInnerHTML is used intentionally here for rendering
+// trusted markdown from the AI assistant (OpenClaw). User messages use plain text
+// rendering (see board-chat-user-text below). The AI content comes from our own
+// OpenClaw gateway, not from arbitrary user input.
 function MarkdownContent({ text, streaming }: { text: string; streaming?: boolean }) {
-  const html = marked.parse(text) as string
+  const html = useMemo(() => marked.parse(text) as string, [text])
   return (
     <div
       className={`board-chat-markdown${streaming ? ' streaming' : ''}`}
@@ -29,7 +34,7 @@ interface BoardChatProps {
   boardId: string
   board: BoardState | null
   setBoard: React.Dispatch<React.SetStateAction<BoardState | null>>
-  ws: React.MutableRefObject<WebSocket | null>
+  ws: React.RefObject<WebSocket | null>
   wsVersion: number
   started: boolean
   checking: boolean
@@ -45,6 +50,11 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
   const inputRef = useRef<HTMLInputElement>(null)
   const greetedRef = useRef(false)
 
+  // I8 fix: RAF-batched token accumulation
+  const tokenBufRef = useRef('')
+  const streamRafRef = useRef<number | null>(null)
+  const streamingMsgIdRef = useRef<string | null>(null)
+
   // ── Listen for streaming events on the shared WS ──────────────────────────
   useEffect(() => {
     const wsInstance = ws.current
@@ -55,19 +65,44 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
         const event = JSON.parse(e.data as string)
         if (event.type === 'ai_start') {
           setSending(true)
+          tokenBufRef.current = ''
+          streamingMsgIdRef.current = event.msgId
           setStreaming({ msgId: event.msgId, text: '' })
         }
-        if (event.type === 'token') {
-          setStreaming(prev =>
-            prev?.msgId === event.msgId ? { ...prev, text: prev.text + event.token } : prev
-          )
+        if (event.type === 'token' && event.msgId === streamingMsgIdRef.current) {
+          // I8 fix: accumulate tokens in ref, flush via RAF
+          tokenBufRef.current += event.token
+          if (streamRafRef.current === null) {
+            streamRafRef.current = requestAnimationFrame(() => {
+              streamRafRef.current = null
+              const accumulated = tokenBufRef.current
+              setStreaming(prev =>
+                prev && prev.msgId === streamingMsgIdRef.current
+                  ? { msgId: prev.msgId, text: accumulated }
+                  : prev
+              )
+            })
+          }
         }
         if (event.type === 'ai_done') {
+          // Cancel any pending RAF
+          if (streamRafRef.current !== null) {
+            cancelAnimationFrame(streamRafRef.current)
+            streamRafRef.current = null
+          }
+          tokenBufRef.current = ''
+          streamingMsgIdRef.current = null
           setStreaming(null)
           setSending(false)
           setBoard(event.board)
         }
         if (event.type === 'error') {
+          if (streamRafRef.current !== null) {
+            cancelAnimationFrame(streamRafRef.current)
+            streamRafRef.current = null
+          }
+          tokenBufRef.current = ''
+          streamingMsgIdRef.current = null
           setStreaming(null)
           setSending(false)
         }
@@ -75,7 +110,13 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
     }
 
     wsInstance.addEventListener('message', handler)
-    return () => wsInstance.removeEventListener('message', handler)
+    return () => {
+      wsInstance.removeEventListener('message', handler)
+      if (streamRafRef.current !== null) {
+        cancelAnimationFrame(streamRafRef.current)
+        streamRafRef.current = null
+      }
+    }
   }, [wsVersion, setBoard])
 
   // ── Greeting on first load ───────────────────────────────────────────────
@@ -89,10 +130,17 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
     }
   }, [board, boardId])
 
-  // ── Auto-scroll ──────────────────────────────────────────────────────────
+  // ── Auto-scroll — I9 fix: debounced to ~12fps max ─────────────────────────
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    const el = messagesRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    scrollTimerRef.current = setTimeout(() => {
+      const el = messagesRef.current
+      if (el) el.scrollTop = el.scrollHeight
+    }, 80)
+    return () => {
+      if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
+    }
   }, [board?.chat.length, streaming?.text])
 
   // ── Send user message ────────────────────────────────────────────────────
@@ -122,7 +170,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
     return (
       <div className="board-chat board-chat-idle">
         <div className="board-chat-start-screen">
-          <div className="board-chat-start-avatar">🤖</div>
+          <div className="board-chat-start-avatar">{'\ud83e\udd16'}</div>
           <h2 className="board-chat-start-title">OpenClaw</h2>
           <p className="board-chat-start-desc">
             Your AI collaborator. Start a session to think through your project, draft docs, design flows, or plan features.
@@ -133,12 +181,12 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
             disabled={checking}
           >
             {checking
-              ? <><span className="board-chat-send-spinner" /> Checking…</>
-              : <>Start session <span className="board-chat-start-arrow">→</span></>
+              ? <><span className="board-chat-send-spinner" /> {'Checking\u2026'}</>
+              : <>Start session <span className="board-chat-start-arrow">{'\u2192'}</span></>
             }
           </button>
           <span className="board-chat-start-hint">
-            Powered by OpenClaw · Claude Haiku
+            Powered by OpenClaw
           </span>
         </div>
       </div>
@@ -151,14 +199,15 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
       <div className="board-chat">
         <div className="board-chat-connecting">
           <div className="board-chat-typing-dots"><span /><span /><span /></div>
-          <span>Connecting…</span>
+          <span>{'Connecting\u2026'}</span>
         </div>
       </div>
     )
   }
 
+  // Replace .findLast (ES2023) with reverse+find for broader compat
   const summaryMsg = board.phase === 'summarizing'
-    ? board.chat.findLast(m => m.author === 'openclaw')
+    ? [...board.chat].reverse().find((m: ChatMessage) => m.author === 'openclaw')
     : null
 
   const handleConfirm = async () => {
@@ -179,11 +228,11 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
       {/* Header */}
       <div className="board-chat-header">
         <div className="board-chat-header-left">
-          <span className="board-chat-avatar">🤖</span>
+          <span className="board-chat-avatar">{'\ud83e\udd16'}</span>
           <div>
             <span className="board-chat-title">OpenClaw</span>
             <span className="board-chat-status">
-              {sending ? 'typing…' : 'online'}
+              {sending ? 'typing\u2026' : 'online'}
             </span>
           </div>
         </div>
@@ -248,7 +297,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-          placeholder={isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw…'}
+          placeholder={isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}
           disabled={!!isDisabled}
           autoFocus
         />

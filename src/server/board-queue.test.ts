@@ -44,7 +44,7 @@ describe('BoardQueueProcessor', () => {
         context: {}, created_at: new Date().toISOString(), retries: 0,
       }],
     })
-    const proc = new BoardQueueProcessor(TEST_ROOT)
+    const proc = new BoardQueueProcessor(TEST_ROOT, () => {})
     proc.init()
     const board = readTestBoard('q1')
     expect(board.queue[0].status).toBe('pending')
@@ -57,7 +57,7 @@ describe('BoardQueueProcessor', () => {
         { id: 't2', board_id: 'q2', type: 'initial', status: 'pending', context: {}, created_at: '2026-01-01T00:01:00Z', retries: 0 },
       ],
     })
-    const proc = new BoardQueueProcessor(TEST_ROOT)
+    const proc = new BoardQueueProcessor(TEST_ROOT, () => {})
     const next = proc.pickNextTask('q2')
     expect(next?.id).toBe('t1')
     const board = readTestBoard('q2')
@@ -72,7 +72,7 @@ describe('BoardQueueProcessor', () => {
         { id: 'early', board_id: 'q3', type: 'initial', status: 'pending', context: {}, created_at: '2026-01-01T00:00:00Z', retries: 0 },
       ],
     })
-    const proc = new BoardQueueProcessor(TEST_ROOT)
+    const proc = new BoardQueueProcessor(TEST_ROOT, () => {})
     const next = proc.pickNextTask('q3')
     expect(next?.id).toBe('early')
   })
@@ -85,7 +85,7 @@ describe('BoardQueueProcessor', () => {
         context: {}, created_at: new Date().toISOString(), retries: 0,
       }],
     })
-    const proc = new BoardQueueProcessor(TEST_ROOT)
+    const proc = new BoardQueueProcessor(TEST_ROOT, () => {})
     proc.completeTask('q4', 'task-x')
     const board = readTestBoard('q4')
     expect(board.queue[0].status).toBe('done')
@@ -99,7 +99,7 @@ describe('BoardQueueProcessor', () => {
         context: {}, created_at: new Date().toISOString(), retries: 0,
       }],
     })
-    const proc = new BoardQueueProcessor(TEST_ROOT)
+    const proc = new BoardQueueProcessor(TEST_ROOT, () => {})
 
     // First failure: retry
     proc.failTask('q5', 'task-f')
@@ -126,7 +126,7 @@ describe('BoardQueueProcessor', () => {
         { id: 't4', board_id: 'q6', type: 'update', status: 'failed', context: {}, created_at: '', retries: 2 },
       ],
     })
-    const proc = new BoardQueueProcessor(TEST_ROOT)
+    const proc = new BoardQueueProcessor(TEST_ROOT, () => {})
     const status = proc.getStatus('q6')
     expect(status.pending).toBe(1)
     expect(status.in_progress).toBe(1)

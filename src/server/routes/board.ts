@@ -1,6 +1,7 @@
 // board.ts — server-side board state persistence + real-time channel
 import path from 'path'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs'
+import { uid, boardsDir, boardPath, readBoard, writeBoard, getOrCreateBoard } from '../board-utils'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ export interface ChatMessage {
   ts: string
 }
 
-export type ArtifactType = 'preview' | 'c3-doc' | 'flow'
+export type ArtifactType = 'preview' | 'c3-doc' | 'flow' | 'screen' | 'a2ui' | 'ref'
 
 export interface Artifact {
   id: string
@@ -108,7 +109,7 @@ export function registerBoardWsClient(
 
   // Push current board state immediately on connect
   try {
-    const board = readBoard(rootDir, boardId)
+    const board = getOrCreateBoard(rootDir, boardId)
     if (!existsSync(boardPath(rootDir, boardId))) writeBoard(rootDir, board)
     send(JSON.stringify({ type: 'board', board }))
   } catch { /* ignore */ }
@@ -118,56 +119,7 @@ export function registerBoardWsClient(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function uid(): string {
-  return Math.random().toString(36).slice(2, 10)
-}
-
-function boardsDir(rootDir: string): string {
-  return path.join(rootDir, '.prev-boards')
-}
-
-function boardPath(rootDir: string, boardId: string): string {
-  return path.join(boardsDir(rootDir), `${boardId}.json`)
-}
-
-function ensureBoardsDir(rootDir: string): void {
-  const dir = boardsDir(rootDir)
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-}
-
-function readBoard(rootDir: string, boardId: string): Board {
-  const p = boardPath(rootDir, boardId)
-  if (!existsSync(p)) {
-    return {
-      id: boardId,
-      phase: 'created',
-      created_at: new Date().toISOString(),
-      chat: [],
-      artifacts: [],
-      threads: [],
-      queue: [],
-    }
-  }
-  try {
-    return JSON.parse(readFileSync(p, 'utf-8'))
-  } catch {
-    return {
-      id: boardId,
-      phase: 'created',
-      created_at: new Date().toISOString(),
-      chat: [],
-      artifacts: [],
-      threads: [],
-      queue: [],
-    }
-  }
-}
-
-function writeBoard(rootDir: string, board: Board): void {
-  ensureBoardsDir(rootDir)
-  writeFileSync(boardPath(rootDir, board.id), JSON.stringify(board, null, 2), 'utf-8')
-}
+// uid, boardsDir, boardPath, readBoard, writeBoard imported from ../board-utils
 
 // ── OpenClaw AI integration ───────────────────────────────────────────────────
 
@@ -290,9 +242,10 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
     text: fullText,
     ts: new Date().toISOString(),
   }
-  const board = readBoard(rootDir, boardId)
+  const board = getOrCreateBoard(rootDir, boardId)
   board.chat.push(aiMsg)
   writeBoard(rootDir, board)
+
 
   // Signal completion — clients can now treat accumulated tokens as the final message
   broadcast(boardId, { type: 'ai_done', msgId: aiMsgId, board })
@@ -300,7 +253,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-export function createBoardHandler(rootDir: string) {
+export function createBoardHandler(rootDir: string, opts?: { onTaskEnqueued?: (boardId: string) => void }) {
   return async (req: Request): Promise<Response | null> => {
     const url = new URL(req.url)
     const pathname = url.pathname
@@ -353,7 +306,7 @@ export function createBoardHandler(rootDir: string) {
 
     // ── GET /__prev/board/:id — return full board state ────────────────────
     if (!subRoute && req.method === 'GET') {
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       if (!existsSync(boardPath(rootDir, boardId))) writeBoard(rootDir, board)
       return Response.json(board)
     }
@@ -364,7 +317,7 @@ export function createBoardHandler(rootDir: string) {
       try { body = await req.json() as Partial<Board> } catch {
         return Response.json({ error: 'invalid JSON' }, { status: 400 })
       }
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       if (body.phase !== undefined) board.phase = body.phase
       if (body.artifacts !== undefined) board.artifacts = body.artifacts
       if (body.sot !== undefined) board.sot = body.sot
@@ -385,7 +338,7 @@ export function createBoardHandler(rootDir: string) {
         return Response.json({ error: 'missing author or text' }, { status: 400 })
       }
 
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       const message: ChatMessage = {
         id: uid(),
         author: body.author,
@@ -410,7 +363,7 @@ export function createBoardHandler(rootDir: string) {
 
     // ── POST /__prev/board/:id/greeting — OpenClaw welcome message ─────────
     if (subRoute === 'greeting' && req.method === 'POST') {
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       if (board.chat.length > 0) return Response.json(board)
 
       const greetingText = `Hey! I'm OpenClaw 👋 — your AI collaborator on this board.\n\nTell me what you're working on and I'll help you think it through, draft docs, design screens, or plan flows. What are we building today?`
@@ -446,7 +399,7 @@ export function createBoardHandler(rootDir: string) {
         return Response.json({ error: 'missing required thread fields' }, { status: 400 })
       }
 
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       const thread: CommentThread = {
         id: uid(),
         artifact_id: body.artifact_id,
@@ -479,7 +432,7 @@ export function createBoardHandler(rootDir: string) {
       if (!body.type || !body.context) {
         return Response.json({ error: 'missing type or context' }, { status: 400 })
       }
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       const task: GenerationTask = {
         id: uid(), board_id: boardId, type: body.type, status: 'pending',
         artifact_id: body.artifact_id, thread_id: body.thread_id,
@@ -487,6 +440,7 @@ export function createBoardHandler(rootDir: string) {
       }
       board.queue.push(task)
       writeBoard(rootDir, board)
+      opts?.onTaskEnqueued?.(boardId)
       return Response.json(board)
     }
 
@@ -498,7 +452,7 @@ export function createBoardHandler(rootDir: string) {
       try { body = await req.json() as typeof body } catch {
         return Response.json({ error: 'invalid JSON' }, { status: 400 })
       }
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       const thread = board.threads.find(t => t.id === threadId)
       if (!thread) return Response.json({ error: 'thread not found' }, { status: 404 })
       thread.comments.push({ id: uid(), author: body.author, text: body.text, ts: new Date().toISOString() })
@@ -510,7 +464,7 @@ export function createBoardHandler(rootDir: string) {
     const requestUpdateMatch = subRoute?.match(/^threads\/([^/]+)\/request-update$/)
     if (req.method === 'POST' && requestUpdateMatch) {
       const threadId = requestUpdateMatch[1]
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       const thread = board.threads.find(t => t.id === threadId)
       if (!thread) return Response.json({ error: 'thread not found' }, { status: 404 })
       thread.status = 'update_requested'
@@ -524,12 +478,44 @@ export function createBoardHandler(rootDir: string) {
       thread.task_id = task.id
       board.queue.push(task)
       writeBoard(rootDir, board)
+      opts?.onTaskEnqueued?.(boardId)
+      return Response.json(board)
+    }
+
+    // ── PATCH /__prev/board/:id/artifact/:artifactId — update single artifact (F4 race fix)
+    const artifactMatch = subRoute?.match(/^artifact\/([^/]+)$/)
+    if (req.method === 'PATCH' && artifactMatch) {
+      const artifactId = artifactMatch[1]
+      let body: Partial<Artifact>
+      try { body = await req.json() as Partial<Artifact> } catch {
+        return Response.json({ error: 'invalid JSON' }, { status: 400 })
+      }
+      const board = getOrCreateBoard(rootDir, boardId)
+      const artifact = board.artifacts.find(a => a.id === artifactId)
+      if (!artifact) return Response.json({ error: 'artifact not found' }, { status: 404 })
+      if (body.x !== undefined) artifact.x = body.x
+      if (body.y !== undefined) artifact.y = body.y
+      if (body.w !== undefined) artifact.w = body.w
+      if (body.h !== undefined) artifact.h = body.h
+      if (body.title !== undefined) artifact.title = body.title
+      writeBoard(rootDir, board)
+      broadcast(boardId, { type: 'board_updated', board })
+      return Response.json(board)
+    }
+
+    // ── DELETE /__prev/board/:id/artifact/:artifactId — remove single artifact
+    if (req.method === 'DELETE' && artifactMatch) {
+      const artifactId = artifactMatch[1]
+      const board = getOrCreateBoard(rootDir, boardId)
+      board.artifacts = board.artifacts.filter(a => a.id !== artifactId)
+      writeBoard(rootDir, board)
+      broadcast(boardId, { type: 'board_updated', board })
       return Response.json(board)
     }
 
     // ── GET /__prev/board/:id/queue-status ────────────────────────────────
     if (req.method === 'GET' && subRoute === 'queue-status') {
-      const board = readBoard(rootDir, boardId)
+      const board = getOrCreateBoard(rootDir, boardId)
       const q = board.queue
       return Response.json({
         pending: q.filter(t => t.status === 'pending').length,

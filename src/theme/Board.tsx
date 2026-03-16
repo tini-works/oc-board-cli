@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Board as BoardState, Artifact, ChatMessage } from '../server/routes/board'
-import type { SotFile } from '../server/routes/sot'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardChat } from './BoardChat'
 import './Board.css'

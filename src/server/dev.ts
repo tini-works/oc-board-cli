@@ -500,9 +500,9 @@ export async function startDevServer(options: DevServerOptions) {
   const componentBundleHandler = createComponentBundleHandler(rootDir)
   const tokensHandler = createTokensHandler(rootDir)
   const approvalHandler = createApprovalHandler(rootDir, config?.approval?.webhookUrl)
-  const boardHandler = createBoardHandler(rootDir)
-  const sotHandler = createSotHandler(rootDir)
   const queueProcessor = new BoardQueueProcessor(rootDir, broadcast)
+  const boardHandler = createBoardHandler(rootDir, { onTaskEnqueued: (id) => queueProcessor.notifyPending(id) })
+  const sotHandler = createSotHandler(rootDir)
   queueProcessor.start()
   const previewRuntimePath = path.join(srcRoot, 'preview-runtime/fast-template.html')
 

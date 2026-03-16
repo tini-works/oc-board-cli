@@ -116,12 +116,17 @@ describe('board handler', () => {
     }))
     expect(res).not.toBeNull()
     expect(res!.status).toBe(200)
-    const board: Board = await res!.json()
+    const chatRes = await res!.json() as { ok: boolean; message: { id: string; author: string; text: string; ts: string } }
+    expect(chatRes.ok).toBe(true)
+    expect(chatRes.message.author).toBe('alice')
+    expect(chatRes.message.text).toBe('Hello world')
+    expect(chatRes.message.id).toBeTruthy()
+    expect(chatRes.message.ts).toBeTruthy()
+
+    // Verify message was persisted to board
+    const boardRes = await handler(makeReq('/__prev/board/chat1'))
+    const board: Board = await boardRes!.json()
     expect(board.chat).toHaveLength(1)
-    expect(board.chat[0].author).toBe('alice')
-    expect(board.chat[0].text).toBe('Hello world')
-    expect(board.chat[0].id).toBeTruthy()
-    expect(board.chat[0].ts).toBeTruthy()
   })
 
   test('POST /board/:id/chat auto-transitions phase from created to discussing', async () => {
@@ -130,11 +135,13 @@ describe('board handler', () => {
 
     await handler(makeReq('/__prev/board/chat2'))
 
-    const res = await handler(makeReq('/__prev/board/chat2/chat', 'POST', {
+    await handler(makeReq('/__prev/board/chat2/chat', 'POST', {
       author: 'bob',
       text: 'First message',
     }))
-    const board: Board = await res!.json()
+    // Read board to check phase (POST /chat returns { ok, message }, not the board)
+    const boardRes = await handler(makeReq('/__prev/board/chat2'))
+    const board: Board = await boardRes!.json()
     expect(board.phase).toBe('discussing')
   })
 
@@ -145,11 +152,13 @@ describe('board handler', () => {
     await handler(makeReq('/__prev/board/chat3'))
     await handler(makeReq('/__prev/board/chat3', 'PATCH', { phase: 'generating' }))
 
-    const res = await handler(makeReq('/__prev/board/chat3/chat', 'POST', {
+    await handler(makeReq('/__prev/board/chat3/chat', 'POST', {
       author: 'carol',
       text: 'Another message',
     }))
-    const board: Board = await res!.json()
+    // Read board to check phase
+    const boardRes = await handler(makeReq('/__prev/board/chat3'))
+    const board: Board = await boardRes!.json()
     expect(board.phase).toBe('generating')
   })
 
@@ -272,6 +281,56 @@ describe('board handler', () => {
     const res = await handler(makeReq('/__prev/board/bad4/queue', 'POST', {}))
     expect(res).not.toBeNull()
     expect(res!.status).toBe(400)
+  })
+
+  test('PATCH /board/:id/artifact/:artifactId updates single artifact', async () => {
+    const dir = getTempDir()
+    const handler = createBoardHandler(dir)
+
+    // Create board with an artifact
+    await handler(makeReq('/__prev/board/art1'))
+    await handler(makeReq('/__prev/board/art1', 'PATCH', {
+      artifacts: [{ id: 'a1', type: 'preview', source: '/test.tsx', x: 0, y: 0, w: 400, h: 300 }],
+    }))
+
+    // Patch single artifact position
+    const res = await handler(makeReq('/__prev/board/art1/artifact/a1', 'PATCH', { x: 100, y: 200 }))
+    expect(res).not.toBeNull()
+    expect(res!.status).toBe(200)
+    const board: Board = await res!.json()
+    expect(board.artifacts[0].x).toBe(100)
+    expect(board.artifacts[0].y).toBe(200)
+    expect(board.artifacts[0].w).toBe(400) // unchanged
+  })
+
+  test('PATCH /board/:id/artifact/:artifactId returns 404 for missing artifact', async () => {
+    const dir = getTempDir()
+    const handler = createBoardHandler(dir)
+
+    await handler(makeReq('/__prev/board/art2'))
+    const res = await handler(makeReq('/__prev/board/art2/artifact/missing', 'PATCH', { x: 10 }))
+    expect(res).not.toBeNull()
+    expect(res!.status).toBe(404)
+  })
+
+  test('DELETE /board/:id/artifact/:artifactId removes artifact', async () => {
+    const dir = getTempDir()
+    const handler = createBoardHandler(dir)
+
+    await handler(makeReq('/__prev/board/art3'))
+    await handler(makeReq('/__prev/board/art3', 'PATCH', {
+      artifacts: [
+        { id: 'a1', type: 'preview', source: '/a.tsx', x: 0, y: 0, w: 400, h: 300 },
+        { id: 'a2', type: 'flow', source: '/b.md', x: 0, y: 0, w: 400, h: 300 },
+      ],
+    }))
+
+    const res = await handler(new Request('http://localhost/__prev/board/art3/artifact/a1', { method: 'DELETE' }))
+    expect(res).not.toBeNull()
+    expect(res!.status).toBe(200)
+    const board: Board = await res!.json()
+    expect(board.artifacts).toHaveLength(1)
+    expect(board.artifacts[0].id).toBe('a2')
   })
 
   test('unsupported sub-route returns null', async () => {
