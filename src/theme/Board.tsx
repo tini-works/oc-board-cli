@@ -11,6 +11,7 @@ function uid() { return Math.random().toString(36).slice(2, 10) }
 function useBoardChannel(boardId: string, started: boolean) {
   const [board, setBoard] = useState<BoardState | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const [wsVersion, setWsVersion] = useState(0)
 
   useEffect(() => {
     if (!started) return
@@ -21,6 +22,7 @@ function useBoardChannel(boardId: string, started: boolean) {
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
       const ws = new WebSocket(`${protocol}//${location.host}/__prev/board/${boardId}/ws`)
       wsRef.current = ws
+      setWsVersion(v => v + 1)
 
       ws.onmessage = (e) => {
         try {
@@ -60,10 +62,10 @@ function useBoardChannel(boardId: string, started: boolean) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artifacts: updated }),
     })
-    setBoard(prev => prev ? { ...prev, artifacts: updated } : prev)
+    setBoard(prev => prev ? { ...prev, artifacts: [...prev.artifacts, newArtifact] } : prev)
   }
 
-  return { board, setBoard, addArtifact, ws: wsRef }
+  return { board, setBoard, addArtifact, ws: wsRef, wsVersion }
 }
 
 export function Board({ boardId }: { boardId: string }) {
@@ -82,7 +84,7 @@ export function Board({ boardId }: { boardId: string }) {
       .finally(() => setChecking(false))
   }, [boardId])
 
-  const { board, setBoard, addArtifact, ws } = useBoardChannel(boardId, started)
+  const { board, setBoard, addArtifact, ws, wsVersion } = useBoardChannel(boardId, started)
 
   return (
     <div className="board-layout">
@@ -100,6 +102,7 @@ export function Board({ boardId }: { boardId: string }) {
           board={board}
           setBoard={setBoard}
           ws={ws}
+          wsVersion={wsVersion}
           started={started}
           checking={checking}
           onStart={() => setStarted(true)}

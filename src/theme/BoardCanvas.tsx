@@ -17,17 +17,13 @@ const ZOOM_MIN = 0.2
 const ZOOM_MAX = 3
 
 // ── Auto-placement grid ───────────────────────────────────────────────────────
-// We don't know card height in advance (content-driven), so use column-based
-// placement: each column tracks its own y-cursor.
-const colCursors: number[] = []
-
-function autoPosition(index: number) {
+// F3 fix: accepts cursors array as param instead of module-level state
+function autoPosition(index: number, cursors: number[]) {
   const col = index % GRID_COLS
-  if (!colCursors[col]) colCursors[col] = 24
+  if (!cursors[col]) cursors[col] = 24
   const x = col * (CARD_W + GRID_COL_GAP) + 24
-  const y = colCursors[col]
-  // Estimate ~400px per card; updated by ResizeObserver in practice
-  colCursors[col] = (colCursors[col] ?? 24) + 400 + GRID_ROW_GAP
+  const y = cursors[col]
+  cursors[col] = (cursors[col] ?? 24) + 400 + GRID_ROW_GAP
   return { x, y }
 }
 
@@ -109,18 +105,20 @@ async function injectDiagramSvgs(rawHtml: string): Promise<string> {
 
 // ── Content renderers ─────────────────────────────────────────────────────────
 
+// F8 fix: add cancellation flag to prevent stale async updates
 function DocRenderer({ src }: { src: string }) {
   const [html, setHtml] = useState('')
   useEffect(() => {
+    let cancelled = false
     fetch(`/__prev/sot/content?path=${encodeURIComponent(src)}`)
       .then(r => r.text())
       .then(async t => {
         const raw = marked.parse(t.replace(/^---[\s\S]*?---\n?/, '')) as string
-        // Bake diagrams into HTML before setting state so React re-renders are safe
         const final = await injectDiagramSvgs(raw)
-        setHtml(final)
+        if (!cancelled) setHtml(final)
       })
-      .catch(() => setHtml('<p style="opacity:.4">Could not load.</p>'))
+      .catch(() => { if (!cancelled) setHtml('<p style="opacity:.4">Could not load.</p>') })
+    return () => { cancelled = true }
   }, [src])
   return <div className="artifact-body artifact-doc" dangerouslySetInnerHTML={{ __html: html }} />
 }
@@ -129,14 +127,16 @@ function FlowRenderer({ src }: { src: string }) {
   const [html, setHtml] = useState('')
 
   useEffect(() => {
+    let cancelled = false
     fetch(`/__prev/sot/content?path=${encodeURIComponent(src)}`)
       .then(r => r.text())
       .then(async t => {
         const raw = marked.parse(t.replace(/^---[\s\S]*?---\n?/, '')) as string
         const final = await injectDiagramSvgs(raw)
-        setHtml(final)
+        if (!cancelled) setHtml(final)
       })
-      .catch(() => setHtml('<p style="opacity:.4">Could not load.</p>'))
+      .catch(() => { if (!cancelled) setHtml('<p style="opacity:.4">Could not load.</p>') })
+    return () => { cancelled = true }
   }, [src])
 
   return <div className="artifact-body artifact-doc" dangerouslySetInnerHTML={{ __html: html }} />
@@ -347,7 +347,7 @@ interface BoardCanvasProps {
   boardId: string
   board: Board | null
   onAddArtifact: (a: Omit<Artifact, 'id'>) => void
-  onBoardUpdate: (b: Board) => void
+  onBoardUpdate: React.Dispatch<React.SetStateAction<Board | null>>
 }
 
 export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: BoardCanvasProps) {
@@ -380,6 +380,20 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
   const [localSizes, setLocalSizes] = useState<Record<string, { w: number; h: number }>>({})
   // Tracks actual rendered card sizes (updated by ResizeObserver)
   const cardSizes = useRef<Record<string, { w: number; h: number }>>({})
+
+  // F3 fix: instance-scoped colCursors instead of module-level
+  const colCursorsRef = useRef<number[]>([])
+
+  // Refs for latest values (avoids stale closures in event handlers)
+  const boardRef = useRef(board)
+  boardRef.current = board
+  const localPositionsRef = useRef(localPositions)
+  localPositionsRef.current = localPositions
+
+  // F3 fix: reset placement cursors when board changes
+  useEffect(() => {
+    colCursorsRef.current = []
+  }, [boardId])
 
   // ── Wheel zoom ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -453,36 +467,62 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
 
     const onUp = async () => {
       // Save artifact size on resize end
-      if (resizing.current && board) {
+      if (resizing.current) {
         const { artifactId, current } = resizing.current
-        const updated = board.artifacts.map(a =>
-          a.id === artifactId
-            ? { ...a, w: Math.round(current.w), h: Math.round(current.h) }
-            : a
-        )
         resizing.current = null
-        await fetch(`/__prev/board/${boardId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ artifacts: updated }),
-        })
-        onBoardUpdate({ ...board, artifacts: updated })
+
+        // F7 fix: clear local size override so WS updates are not shadowed
+        setLocalSizes(prev => { const next = { ...prev }; delete next[artifactId]; return next })
+
+        const currentBoard = boardRef.current
+        if (currentBoard) {
+          const updated = currentBoard.artifacts.map(a =>
+            a.id === artifactId
+              ? { ...a, w: Math.round(current.w), h: Math.round(current.h) }
+              : a
+          )
+          await fetch(`/__prev/board/${boardId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artifacts: updated }),
+          })
+          // F5 fix: functional updater to avoid overwriting concurrent WS updates
+          onBoardUpdate(prev => {
+            if (!prev) return prev
+            return { ...prev, artifacts: prev.artifacts.map(a =>
+              a.id === artifactId ? { ...a, w: Math.round(current.w), h: Math.round(current.h) } : a
+            )}
+          })
+        }
       }
       resizing.current = null
 
       // Save artifact position on drag end
-      if (dragging.current && board) {
+      if (dragging.current) {
         const { artifactId, current } = dragging.current
-        const updated = board.artifacts.map(a =>
-          a.id === artifactId ? { ...a, x: Math.round(current.x), y: Math.round(current.y) } : a
-        )
         dragging.current = null
-        await fetch(`/__prev/board/${boardId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ artifacts: updated }),
-        })
-        onBoardUpdate({ ...board, artifacts: updated })
+
+        // Clear local position override after persist
+        setLocalPositions(prev => { const next = { ...prev }; delete next[artifactId]; return next })
+
+        const currentBoard = boardRef.current
+        if (currentBoard) {
+          const updated = currentBoard.artifacts.map(a =>
+            a.id === artifactId ? { ...a, x: Math.round(current.x), y: Math.round(current.y) } : a
+          )
+          await fetch(`/__prev/board/${boardId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artifacts: updated }),
+          })
+          // F5 fix: functional updater
+          onBoardUpdate(prev => {
+            if (!prev) return prev
+            return { ...prev, artifacts: prev.artifacts.map(a =>
+              a.id === artifactId ? { ...a, x: Math.round(current.x), y: Math.round(current.y) } : a
+            )}
+          })
+        }
       }
       dragging.current = null
       panning.current = null
@@ -494,26 +534,33 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
     return () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      // F10 fix: reset cursor on cleanup (unmount during drag)
+      document.body.style.cursor = ''
     }
-  }, [zoom, board, boardId, onBoardUpdate])
+  }, [zoom, boardId, onBoardUpdate])
 
+  // F4 fix: read from localPositionsRef to get latest position (not stale board)
+  // F11 fix: guard against concurrent drag+resize
   const handleDragStart = useCallback((artifactId: string, e: React.MouseEvent) => {
-    const artifact = board?.artifacts.find(a => a.id === artifactId)
+    if (resizing.current) return
+    const artifact = boardRef.current?.artifacts.find(a => a.id === artifactId)
     if (!artifact) return
     document.body.style.cursor = 'grabbing'
+    const pos = localPositionsRef.current[artifactId] ?? { x: artifact.x, y: artifact.y }
     dragging.current = {
       artifactId,
       startMouse: { x: e.clientX, y: e.clientY },
-      startPos: { x: artifact.x, y: artifact.y },
-      current: { x: artifact.x, y: artifact.y },
+      startPos: pos,
+      current: pos,
     }
-  }, [board])
+  }, [])
 
+  // F11 fix: guard against concurrent drag+resize
   const handleResizeStart = useCallback((artifactId: string, e: React.MouseEvent) => {
-    const artifact = board?.artifacts.find(a => a.id === artifactId)
+    if (dragging.current) return
+    const artifact = boardRef.current?.artifacts.find(a => a.id === artifactId)
     if (!artifact) return
     document.body.style.cursor = 'nwse-resize'
-    // Use current rendered size as start (fall back to stored w, or CARD_W)
     const renderedSize = cardSizes.current[artifactId]
     const startW = renderedSize?.w ?? (artifact.w > 0 ? artifact.w : CARD_W)
     const startH = renderedSize?.h ?? (artifact.h > 0 ? artifact.h : CARD_MIN_H)
@@ -523,7 +570,7 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
       startSize: { w: startW, h: startH },
       current: { w: startW, h: startH },
     }
-  }, [board])
+  }, [])
 
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
     // Pan on canvas background click (not on cards)
@@ -536,20 +583,26 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
   }
 
   const handleRemove = async (artifactId: string) => {
-    if (!board) return
-    const updated = board.artifacts.filter(a => a.id !== artifactId)
+    const currentBoard = boardRef.current
+    if (!currentBoard) return
+    const updated = currentBoard.artifacts.filter(a => a.id !== artifactId)
     await fetch(`/__prev/board/${boardId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artifacts: updated }),
     })
-    onBoardUpdate({ ...board, artifacts: updated })
+    // F5 fix: functional updater
+    onBoardUpdate(prev => prev ? { ...prev, artifacts: prev.artifacts.filter(a => a.id !== artifactId) } : prev)
     setLocalPositions(p => { const next = { ...p }; delete next[artifactId]; return next })
+    // F9 fix: also clear localSizes and cardSizes for removed artifact
+    setLocalSizes(s => { const next = { ...s }; delete next[artifactId]; return next })
+    delete cardSizes.current[artifactId]
   }
 
   const handleAddFile = (file: SotFile) => {
     const index = board?.artifacts.length ?? 0
-    const pos = autoPosition(index)
+    // F3 fix: use instance-scoped cursors
+    const pos = autoPosition(index, colCursorsRef.current)
     const typeMap: Record<string, Artifact['type']> = {
       flow: 'flow', screen: 'screen' as any, doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui' as any,
     }

@@ -28,15 +28,16 @@ interface StreamingMsg {
 interface BoardChatProps {
   boardId: string
   board: BoardState | null
-  setBoard: (b: BoardState) => void
+  setBoard: React.Dispatch<React.SetStateAction<BoardState | null>>
   ws: React.MutableRefObject<WebSocket | null>
+  wsVersion: number
   started: boolean
   checking: boolean
   onStart: () => void
 }
 
 // BoardChat reads board state from Board.tsx via props; WS events for streaming only
-export function BoardChat({ boardId, board, setBoard, ws, started, checking, onStart }: BoardChatProps) {
+export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, checking, onStart }: BoardChatProps) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const [streaming, setStreaming] = useState<StreamingMsg | null>(null)
@@ -75,7 +76,7 @@ export function BoardChat({ boardId, board, setBoard, ws, started, checking, onS
 
     wsInstance.addEventListener('message', handler)
     return () => wsInstance.removeEventListener('message', handler)
-  }, [ws.current]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wsVersion, setBoard])
 
   // ── Greeting on first load ───────────────────────────────────────────────
   useEffect(() => {
