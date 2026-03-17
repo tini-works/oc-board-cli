@@ -25,9 +25,37 @@ function MarkdownContent({ text, streaming }: { text: string; streaming?: boolea
   )
 }
 
+function ThinkingBlock({ text, streaming }: { text: string; streaming?: boolean }) {
+  const [open, setOpen] = useState(false)
+  if (!text) return null
+  return (
+    <details className={`board-chat-thinking${streaming ? ' streaming' : ''}`} open={open || streaming}>
+      <summary onClick={e => { e.preventDefault(); setOpen(!open) }}>
+        {streaming ? 'Thinking\u2026' : 'Thinking'}
+      </summary>
+      <div className="board-chat-thinking-content">{text}</div>
+    </details>
+  )
+}
+
+const thinkCharColors = ['#c4b5fd', '#93c5fd', '#86efac', '#fda4af', '#fcd34d']
+function highlightThink(text: string) {
+  const parts = text.split(/(\bthink\b)/gi)
+  if (parts.length === 1) return <>{text}</>
+  return <>{parts.map((p, i) => {
+    if (/^think$/i.test(p)) {
+      return <span key={i} className="board-chat-think-highlight">
+        {p.split('').map((ch, ci) => <span key={ci} style={{ color: thinkCharColors[ci] }}>{ch}</span>)}
+      </span>
+    }
+    return p
+  })}</>
+}
+
 interface StreamingMsg {
   msgId: string
   text: string
+  thinking: string
 }
 
 interface BoardChatProps {
@@ -52,6 +80,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
 
   // I8 fix: RAF-batched token accumulation
   const tokenBufRef = useRef('')
+  const thinkingBufRef = useRef('')
   const streamRafRef = useRef<number | null>(null)
   const streamingMsgIdRef = useRef<string | null>(null)
 
@@ -66,8 +95,22 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
         if (event.type === 'ai_start') {
           setSending(true)
           tokenBufRef.current = ''
+          thinkingBufRef.current = ''
           streamingMsgIdRef.current = event.msgId
-          setStreaming({ msgId: event.msgId, text: '' })
+          setStreaming({ msgId: event.msgId, text: '', thinking: '' })
+        }
+        if (event.type === 'thinking_token' && event.msgId === streamingMsgIdRef.current) {
+          thinkingBufRef.current += event.token
+          if (streamRafRef.current === null) {
+            streamRafRef.current = requestAnimationFrame(() => {
+              streamRafRef.current = null
+              setStreaming(prev =>
+                prev && prev.msgId === streamingMsgIdRef.current
+                  ? { msgId: prev.msgId, text: tokenBufRef.current, thinking: thinkingBufRef.current }
+                  : prev
+              )
+            })
+          }
         }
         if (event.type === 'token' && event.msgId === streamingMsgIdRef.current) {
           // I8 fix: accumulate tokens in ref, flush via RAF
@@ -75,22 +118,21 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
           if (streamRafRef.current === null) {
             streamRafRef.current = requestAnimationFrame(() => {
               streamRafRef.current = null
-              const accumulated = tokenBufRef.current
               setStreaming(prev =>
                 prev && prev.msgId === streamingMsgIdRef.current
-                  ? { msgId: prev.msgId, text: accumulated }
+                  ? { msgId: prev.msgId, text: tokenBufRef.current, thinking: thinkingBufRef.current }
                   : prev
               )
             })
           }
         }
         if (event.type === 'ai_done') {
-          // Cancel any pending RAF
           if (streamRafRef.current !== null) {
             cancelAnimationFrame(streamRafRef.current)
             streamRafRef.current = null
           }
           tokenBufRef.current = ''
+          thinkingBufRef.current = ''
           streamingMsgIdRef.current = null
           setStreaming(null)
           setSending(false)
@@ -102,6 +144,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
             streamRafRef.current = null
           }
           tokenBufRef.current = ''
+          thinkingBufRef.current = ''
           streamingMsgIdRef.current = null
           setStreaming(null)
           setSending(false)
@@ -259,8 +302,11 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
               </span>
             </div>
             {msg.author === 'openclaw'
-              ? <MarkdownContent text={msg.text} />
-              : <div className="board-chat-user-text">{msg.text}</div>
+              ? <>
+                  {msg.thinking && <ThinkingBlock text={msg.thinking} />}
+                  <MarkdownContent text={msg.text} />
+                </>
+              : <div className="board-chat-user-text">{highlightThink(msg.text)}</div>
             }
           </div>
         ))}
@@ -272,9 +318,10 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
               <span className="board-chat-msg-author">OpenClaw</span>
               <span className="board-chat-msg-time">now</span>
             </div>
+            {streaming.thinking && <ThinkingBlock text={streaming.thinking} streaming />}
             {streaming.text
               ? <MarkdownContent text={streaming.text} streaming />
-              : <div className="board-chat-typing-dots"><span /><span /><span /></div>
+              : !streaming.thinking && <div className="board-chat-typing-dots"><span /><span /><span /></div>
             }
           </div>
         )}
@@ -294,16 +341,22 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
 
       {/* Input */}
       <div className="board-chat-input">
-        <input
-          ref={inputRef}
-          type="text"
-          value={text}
-          onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && !e.repeat && sendMessage()}
-          placeholder={isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}
-          disabled={!!isDisabled}
-          autoFocus
-        />
+        <div className="board-chat-input-wrap">
+          <div className="board-chat-input-mirror" aria-hidden="true">
+            {text ? highlightThink(text) : <span className="board-chat-input-placeholder">{isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}</span>}
+          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            className="board-chat-input-real"
+            value={text}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && !e.repeat && sendMessage()}
+            placeholder=""
+            disabled={!!isDisabled}
+            autoFocus
+          />
+        </div>
         <button
           className="board-chat-send-btn"
           onClick={sendMessage}
