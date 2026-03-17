@@ -330,7 +330,7 @@
   padding: 12px;
   border-top: 1px solid var(--fd-border);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   flex-shrink: 0;
 }
@@ -342,6 +342,22 @@
   border-radius: 20px;
   background: var(--fd-background);
   transition: border-color 0.15s;
+  overflow: hidden;
+  max-height: 650px;
+}
+
+.board-chat-input-drag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 2;
+}
+
+.board-chat-input-drag:hover {
+  background: linear-gradient(180deg, rgba(124, 58, 237, 0.15), transparent);
 }
 
 .board-chat-input-wrap:focus-within {
@@ -355,13 +371,15 @@
   font-size: 13px;
   font-family: var(--fd-font-sans);
   line-height: 1.4;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .board-chat-input-mirror {
   pointer-events: none;
   color: var(--fd-foreground);
   overflow: hidden;
+  min-height: 1.4em;
 }
 
 .board-chat-input-placeholder {
@@ -373,12 +391,15 @@
   position: absolute;
   inset: 0;
   width: 100%;
+  height: 100%;
   background: transparent;
   color: transparent;
   caret-color: var(--fd-foreground);
   border: none;
   border-radius: 20px;
   outline: none;
+  resize: none;
+  overflow: auto;
 }
 
 .board-chat-input-real:disabled {
@@ -565,7 +586,3 @@
   line-height: 1.5;
 }
 
-/* ── "think" highlight in user messages & input ────────────────────────── */
-.board-chat-think-highlight {
-  /* per-char colors applied via inline style */
-}

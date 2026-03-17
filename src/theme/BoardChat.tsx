@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { marked } from 'marked'
 import type { Board as BoardState, ChatMessage } from '../server/routes/board'
 import { QueueStatus } from './QueueStatus'
+import { highlightThink } from './ThinkHighlight'
+import './ThinkHighlight.css'
 import './BoardChat.css'
 
 marked.use({ breaks: true, gfm: true })
@@ -38,19 +40,6 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming?: boolean 
   )
 }
 
-const thinkCharColors = ['#c4b5fd', '#93c5fd', '#86efac', '#fda4af', '#fcd34d']
-function highlightThink(text: string) {
-  const parts = text.split(/(\bthink\b)/gi)
-  if (parts.length === 1) return <>{text}</>
-  return <>{parts.map((p, i) => {
-    if (/^think$/i.test(p)) {
-      return <span key={i} className="board-chat-think-highlight">
-        {p.split('').map((ch, ci) => <span key={ci} style={{ color: thinkCharColors[ci] }}>{ch}</span>)}
-      </span>
-    }
-    return p
-  })}</>
-}
 
 interface StreamingMsg {
   msgId: string
@@ -75,7 +64,9 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
   const [sending, setSending] = useState(false)
   const [streaming, setStreaming] = useState<StreamingMsg | null>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const dragMinH = useRef<number | null>(null)
   const greetedRef = useRef(false)
 
   // I8 fix: RAF-batched token accumulation
@@ -209,6 +200,39 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
     inputRef.current?.focus()
   }, [text, sending, boardId])
 
+  // Auto-scale textarea height on content change
+  useEffect(() => {
+    const ta = inputRef.current
+    const wrap = wrapRef.current
+    if (!ta || !wrap) return
+    ta.style.height = '0'
+    const contentH = ta.scrollHeight
+    ta.style.height = ''
+    const minH = dragMinH.current
+    const h = minH && minH > contentH ? minH : contentH
+    wrap.style.height = h + 'px'
+  }, [text])
+
+  // Drag-to-resize from top handle
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const startY = e.clientY
+    const startH = wrap.offsetHeight
+    const onMove = (ev: MouseEvent) => {
+      const newH = Math.min(650, Math.max(36, startH + (startY - ev.clientY)))
+      dragMinH.current = newH
+      wrap.style.height = newH + 'px'
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [])
+
   const isDisabled = board?.phase === 'generating' || board?.phase === 'done'
 
   // ── Not yet started — show intro CTA ────────────────────────────────────
@@ -341,17 +365,23 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
 
       {/* Input */}
       <div className="board-chat-input">
-        <div className="board-chat-input-wrap">
+        <div className="board-chat-input-wrap" ref={wrapRef}>
+          <div className="board-chat-input-drag" onMouseDown={onDragStart} />
           <div className="board-chat-input-mirror" aria-hidden="true">
             {text ? highlightThink(text) : <span className="board-chat-input-placeholder">{isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}</span>}
           </div>
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
             className="board-chat-input-real"
             value={text}
+            rows={1}
             onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && !e.repeat && sendMessage()}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
+                e.preventDefault()
+                sendMessage()
+              }
+            }}
             placeholder=""
             disabled={!!isDisabled}
             autoFocus
