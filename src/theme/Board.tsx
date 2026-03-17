@@ -97,7 +97,10 @@ export function Board({ boardId }: { boardId: string }) {
   const { board, setBoard, addArtifact, ws, wsVersion } = useBoardChannel(boardId, started)
 
   // ── Resizable chat panel ──────────────────────────────────────────────────
-  const [chatWidth, setChatWidth] = useState(320)
+  const [chatWidth, setChatWidth] = useState(() => {
+    const saved = localStorage.getItem('board-chat-width')
+    return saved ? Math.min(Math.max(Number(saved), 240), 700) : 320
+  })
   const dragging = useRef(false)
   const startX = useRef(0)
   const startW = useRef(0)
@@ -112,17 +115,19 @@ export function Board({ boardId }: { boardId: string }) {
   }, [chatWidth])
 
   useEffect(() => {
+    let lastWidth = 0
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return
       const delta = startX.current - e.clientX
-      const newWidth = Math.min(Math.max(startW.current + delta, 240), 700)
-      setChatWidth(newWidth)
+      lastWidth = Math.min(Math.max(startW.current + delta, 240), 700)
+      setChatWidth(lastWidth)
     }
     const onUp = () => {
       if (!dragging.current) return
       dragging.current = false
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
+      if (lastWidth) localStorage.setItem('board-chat-width', String(lastWidth))
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)

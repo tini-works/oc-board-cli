@@ -3,6 +3,12 @@
 This is the **derived repo** for `prev-cli` (fork). All architectural decisions
 are governed by the SOT repository.
 
+## Local Development
+
+```bash
+bun run src/cli.ts dev -p 6863   # Start dev server (board mode)
+```
+
 ## SOT Location
 
 ```
