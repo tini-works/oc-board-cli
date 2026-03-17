@@ -144,8 +144,10 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
   }, [board?.chat.length, streaming?.text])
 
   // ── Send user message ────────────────────────────────────────────────────
+  const sendingRef = useRef(false)
   const sendMessage = useCallback(async () => {
-    if (!text.trim() || sending) return
+    if (!text.trim() || sending || sendingRef.current) return
+    sendingRef.current = true
     const msg = text.trim()
     setText('')
 
@@ -160,6 +162,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
       body: JSON.stringify({ author: 'user', text: msg }),
     }).catch(() => {})
 
+    sendingRef.current = false
     inputRef.current?.focus()
   }, [text, sending, boardId])
 
@@ -296,7 +299,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
           type="text"
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && !e.repeat && sendMessage()}
           placeholder={isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}
           disabled={!!isDisabled}
           autoFocus
