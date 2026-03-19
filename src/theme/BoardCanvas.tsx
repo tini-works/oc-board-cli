@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { marked } from 'marked'
-import type { Board, Artifact } from '../server/routes/board'
+import type { Board, Artifact, CommentThread } from '../server/routes/board'
 import type { SotFile } from '../server/routes/sot'
 import './BoardCanvas.css'
 
@@ -185,10 +185,14 @@ interface ArtifactCardProps {
   onDragStart: (id: string, e: React.MouseEvent) => void
   onResizeStart: (id: string, e: React.MouseEvent) => void
   onRemove: (id: string) => void
+  boardId: string
+  threads: CommentThread[]
+  onRefresh: () => void
 }
 
 const ArtifactCard = React.memo(function ArtifactCard({
   artifact, position, zoom, localSize, onDragStart, onResizeStart, onRemove,
+  boardId, threads, onRefresh,
 }: ArtifactCardProps) {
   const typeMap: Record<string, string> = { 'c3-doc': 'doc', flow: 'flow', screen: 'screen', preview: 'preview', ref: 'ref' }
   const displayType = typeMap[artifact.type] ?? artifact.type
@@ -196,6 +200,67 @@ const ArtifactCard = React.memo(function ArtifactCard({
 
   const w = localSize?.w ?? (artifact.w > 0 ? artifact.w : CARD_W)
   const h = localSize?.h ?? (artifact.h > 0 ? artifact.h : undefined)
+
+  // Comments state
+  const [openComments, setOpenComments] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const allComments = threads.flatMap(t => t.comments)
+  const commentCount = allComments.length
+
+  const addComment = useCallback(async () => {
+    const text = commentText.trim()
+    if (!text || submitting) return
+    setSubmitting(true)
+    try {
+      if (threads.length === 0) {
+        // Create a new thread first
+        const typeMap2: Record<string, string> = { 'c3-doc': 'c3-doc', flow: 'flow', screen: 'screen', preview: 'preview', ref: 'c3-doc', a2ui: 'a2ui' }
+        await fetch(`/__prev/board/${boardId}/threads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            artifact_id: artifact.id,
+            artifact_type: typeMap2[artifact.type] ?? artifact.type,
+            artifact_source: artifact.source,
+            x_pct: 0,
+            y_pct: 0,
+            comments: [{ author: 'user', text }],
+          }),
+        })
+      } else {
+        // Add comment to existing thread
+        await fetch(`/__prev/board/${boardId}/threads/${threads[0].id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ author: 'user', text }),
+        })
+      }
+      setCommentText('')
+      onRefresh()
+    } catch (err) {
+      console.error('Failed to add comment:', err)
+    } finally {
+      setSubmitting(false)
+    }
+  }, [commentText, submitting, threads, boardId, artifact, onRefresh])
+
+  const handleCommentKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      addComment()
+    }
+  }, [addComment])
+
+  const commentListRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll comment list on new comments
+  useEffect(() => {
+    if (openComments && commentListRef.current) {
+      commentListRef.current.scrollTop = commentListRef.current.scrollHeight
+    }
+  }, [openComments, commentCount])
 
   return (
     <div
@@ -221,12 +286,58 @@ const ArtifactCard = React.memo(function ArtifactCard({
           {TYPE_LABEL[displayType] ?? artifact.type}
         </span>
         <button
+          className={`artifact-card-comment-btn${openComments ? ' active' : ''}`}
+          onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setOpenComments(v => !v) }}
+          title="Comments"
+        >
+          {'\ud83d\udcac'}
+          {commentCount > 0 && <span className="artifact-card-comment-btn-count">{commentCount}</span>}
+        </button>
+        <button
           className="artifact-card-remove"
           onMouseDown={e => e.stopPropagation()}
           onClick={() => onRemove(artifact.id)}
           title="Remove"
         >{'\u00d7'}</button>
       </div>
+
+      {/* Expanded comments panel — between header and content */}
+      {openComments && (
+        <div className="artifact-card-comments">
+          <div className="artifact-card-comments-list" ref={commentListRef}>
+            {allComments.length === 0 && (
+              <div className="artifact-card-comments-empty">No comments yet</div>
+            )}
+            {allComments.map(c => (
+              <div key={c.id} className="artifact-card-comment-msg">
+                <span className="artifact-card-comment-author">{c.author}</span>
+                <span className="artifact-card-comment-text">{c.text}</span>
+                <span className="artifact-card-comment-ts">
+                  {new Date(c.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="artifact-card-comment-input">
+            <input
+              type="text"
+              placeholder="Add a comment..."
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onKeyDown={handleCommentKeyDown}
+              disabled={submitting}
+              onMouseDown={e => e.stopPropagation()}
+            />
+            <button
+              onClick={e => { e.stopPropagation(); addComment() }}
+              disabled={!commentText.trim() || submitting}
+              title="Send"
+            >
+              {submitting ? '...' : '\u27a4'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div
@@ -371,6 +482,15 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 40, y: 40 })
   const [browserCollapsed, setBrowserCollapsed] = useState(false)
+
+  // Refresh board from server (used after adding comments)
+  const refreshBoard = useCallback(async () => {
+    const res = await fetch(`/__prev/board/${boardId}`)
+    if (res.ok) {
+      const fresh = await res.json()
+      onBoardUpdate(() => fresh)
+    }
+  }, [boardId, onBoardUpdate])
 
   // Drag state
   const dragging = useRef<{
@@ -753,6 +873,9 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
                 onDragStart={handleDragStart}
                 onResizeStart={handleResizeStart}
                 onRemove={handleRemove}
+                boardId={boardId}
+                threads={(board?.threads ?? []).filter(t => t.artifact_id === artifact.id)}
+                onRefresh={refreshBoard}
               />
             )
           })}

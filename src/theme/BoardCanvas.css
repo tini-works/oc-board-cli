@@ -416,3 +416,147 @@
 .sot-file-path { display: block; font-size: 10px; color: var(--fd-muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .sot-file-add { font-size: 16px; font-weight: 300; color: #7c3aed; opacity: 0; transition: opacity 0.1s; flex-shrink: 0; }
+
+/* ── Artifact card header comment button ── */
+.artifact-card-comment-btn {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--fd-muted-foreground);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s;
+  opacity: 0;
+}
+
+.artifact-card-header:hover .artifact-card-comment-btn { opacity: 1; }
+.artifact-card-comment-btn:hover { background: rgba(124,58,237,.12); color: #7c3aed; }
+.artifact-card-comment-btn.active { opacity: 1; color: #7c3aed; }
+
+.artifact-card-comment-btn-count {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.3;
+  min-width: 12px;
+  text-align: center;
+  padding: 0 3px;
+  border-radius: 9999px;
+}
+
+/* ── Expanded comments panel ── */
+.artifact-card-comments {
+  border-top: 1px solid var(--fd-border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.artifact-card-comments-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.artifact-card-comments-empty {
+  font-size: 11px;
+  color: var(--fd-muted-foreground);
+  text-align: center;
+  padding: 8px 0;
+  opacity: 0.6;
+}
+
+.artifact-card-comment-msg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.artifact-card-comment-author {
+  font-weight: 600;
+  color: var(--fd-foreground);
+  flex-shrink: 0;
+}
+
+.artifact-card-comment-text {
+  color: var(--fd-foreground);
+  word-break: break-word;
+  flex: 1;
+  min-width: 0;
+}
+
+.artifact-card-comment-ts {
+  font-size: 10px;
+  color: var(--fd-muted-foreground);
+  flex-shrink: 0;
+  align-self: flex-end;
+}
+
+/* ── Comment input row ── */
+.artifact-card-comment-input {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--fd-border);
+}
+
+.artifact-card-comment-input input {
+  flex: 1;
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--fd-border);
+  border-radius: 6px;
+  background: var(--fd-background);
+  color: var(--fd-foreground);
+  outline: none;
+  font-family: var(--fd-font-sans);
+}
+
+.artifact-card-comment-input input:focus {
+  border-color: #7c3aed;
+}
+
+.artifact-card-comment-input button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fd-border);
+  border-radius: 6px;
+  background: var(--fd-muted);
+  color: var(--fd-foreground);
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.artifact-card-comment-input button:hover:not(:disabled) {
+  background: #7c3aed;
+  color: #fff;
+  border-color: #7c3aed;
+}
+
+.artifact-card-comment-input button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
