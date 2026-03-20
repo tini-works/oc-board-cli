@@ -781,12 +781,28 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
       // Don't intercept scroll events inside artifact cards or comments popup
       if ((e.target as HTMLElement).closest('.artifact-card, .artifact-comments-popup')) return
 
+      const isPinchOrCtrlZoom = e.ctrlKey || e.metaKey
+      const isTrackpad = e.deltaMode === 0
+
+      // Trackpad 2-finger swipe (no ctrl/meta) → PAN (inverted: Figma behavior)
+      if (isTrackpad && !isPinchOrCtrlZoom) {
+        e.preventDefault()
+        setPan(p => ({
+          x: p.x - e.deltaX,
+          y: p.y - e.deltaY,
+        }))
+        return
+      }
+
+      // Mouse wheel scroll (deltaMode === 1) or ctrl+scroll/pinch-to-zoom → ZOOM
       e.preventDefault()
       const rect = el.getBoundingClientRect()
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
 
-      const delta = e.deltaY < 0 ? 0.12 : -0.12
+      // Pinch-to-zoom uses finer increments from trackpad
+      const magnitude = isTrackpad && isPinchOrCtrlZoom ? Math.abs(e.deltaY) * 0.005 : 0.12
+      const delta = e.deltaY < 0 ? magnitude : -magnitude
       setZoom(prev => {
         const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, prev + delta))
         // Zoom toward cursor: adjust pan so the point under cursor stays fixed
