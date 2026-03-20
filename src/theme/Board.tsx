@@ -104,6 +104,8 @@ export function Board({ boardId }: { boardId: string }) {
           board={board}
           onAddArtifact={addArtifact}
           onBoardUpdate={setBoard}
+          ws={ws}
+          wsVersion={wsVersion}
         />
       </div>
       <div className="board-chat-panel">

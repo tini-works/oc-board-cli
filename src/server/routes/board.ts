@@ -1,6 +1,6 @@
 // board.ts — server-side board state persistence + real-time channel
 import path from 'path'
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
 import { uid, boardsDir, boardPath, readBoard, writeBoard, getOrCreateBoard } from '../board-utils'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -123,15 +123,37 @@ export function registerBoardWsClient(
 
 // ── OpenClaw AI integration ───────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `You are OpenClaw, an AI assistant embedded in a collaborative board inside prev-cli — a live documentation and design preview tool.
+function buildSystemPrompt(rootDir: string) {
+  return `You are OpenClaw, an AI assistant embedded in a collaborative board inside prev-cli — a live documentation and design preview tool.
 
 Your role is to help users think through ideas, plan features, write documentation, review designs, generate artifacts, and collaborate on creative or technical work.
+
+Project workspace: ${rootDir}
+The project's .c3/ and .opencode/ directories are located at ${rootDir}/.c3/ and ${rootDir}/.opencode/ respectively. When referencing these directories, always use the full paths.
 
 Guidelines:
 - Be concise, practical, and thoughtful
 - Use markdown: **bold**, lists, \`code\` — it renders in the UI
 - When users describe something to build, help them refine requirements
 - Keep a warm, competent tone`
+}
+
+function buildArtifactSystemPrompt() {
+  return `You are an AI assistant helping a user discuss and iterate on a specific artifact on a collaborative board inside prev-cli.
+
+You have filesystem access — use your tools to read, write, and execute files as needed. When the user asks you to create or modify a file, use your tools to do it directly.
+
+Key paths in the workspace:
+- .c3/ — C3 architecture docs
+- .opencode/skill/ — agent skill files
+- src/ — source code
+
+Guidelines:
+- Be concise — this is a small inline panel, not a full chat
+- Use markdown sparingly: **bold**, \`code\`
+- When modifying files, make the changes and briefly describe what you did
+- Suggest improvements or point out issues when relevant`
+}
 
 // Detect which agent should handle this message based on @mentions
 function detectAgentId(text: string): string {
@@ -188,7 +210,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
         model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
         stream: true,
         messages: agentId === 'board'
-          ? [{ role: 'system', content: SYSTEM_PROMPT }, ...messages]
+          ? [{ role: 'system', content: buildSystemPrompt(rootDir) }, ...messages]
           : messages,
       }),
     })
@@ -250,6 +272,154 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
 
   // Signal completion — clients can now treat accumulated tokens as the final message
   broadcast(boardId, { type: 'ai_done', msgId: aiMsgId, board })
+}
+
+// Per-artifact AI response — uses Gateway sessions for persistent per-artifact conversations
+// Each artifact gets its own session key so the agent has real filesystem tools and
+// maintains conversation history across interactions.
+async function generateArtifactResponse(
+  rootDir: string,
+  boardId: string,
+  artifactId: string,
+  userText: string,
+) {
+  const board = readBoard(rootDir, boardId)
+  if (!board) {
+    broadcast(boardId, { type: 'artifact_ai_error', artifactId, text: 'Board not found' })
+    return
+  }
+
+  const artifact = board.artifacts.find(a => a.id === artifactId)
+  if (!artifact) {
+    broadcast(boardId, { type: 'artifact_ai_error', artifactId, text: 'Artifact not found' })
+    return
+  }
+
+  // Gather prior threads for saving comments later
+  const artifactThreads = board.threads.filter(t => t.artifact_id === artifactId)
+
+  const gatewayProto = process.env.OPENCLAW_GATEWAY_PROTO || 'http'
+  const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
+  const gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
+  const gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
+
+  // Per-artifact session key — stable across calls so the Gateway maintains conversation history
+  const sessionKey = `board:${boardId}:artifact:${artifactId}`
+
+  // Build messages: system prompt with artifact context + the user's new message
+  // Gateway session handles prior conversation history, so we only send the new turn
+  const artifactContext = `This is an artifact on a collaborative board.\n- Artifact: ${artifact.title || artifact.source}\n- Type: ${artifact.type}\n- Source: ${artifact.source}\n- Artifact-ID: ${artifactId}\n- Board-ID: ${boardId}`
+
+  const messages: { role: 'system' | 'user'; content: string }[] = [
+    { role: 'system', content: buildArtifactSystemPrompt() + '\n\n' + artifactContext },
+    { role: 'user', content: userText },
+  ]
+
+  const agentId = process.env.OPENCLAW_AGENT_ID || 'sot-artifact-editor'
+
+  let response: Response
+  try {
+    response = await fetch(`${gatewayProto}://${gatewayHost}:${gatewayPort}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${gatewayToken}`,
+        'x-openclaw-agent-id': agentId,
+        'x-openclaw-session-key': sessionKey,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
+        stream: true,
+        messages,
+      }),
+    })
+  } catch (err) {
+    broadcast(boardId, { type: 'artifact_ai_error', artifactId, text: String(err) })
+    return
+  }
+
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => '')
+    console.error(`[artifact-ai] Gateway error ${response.status}: ${errBody.slice(0, 500)}`)
+    broadcast(boardId, { type: 'artifact_ai_error', artifactId, text: `Gateway error ${response.status}` })
+    return
+  }
+
+  const aiMsgId = uid()
+  broadcast(boardId, { type: 'artifact_ai_start', msgId: aiMsgId, artifactId })
+
+  const reader = response.body!.getReader()
+  const dec = new TextDecoder()
+  let fullText = ''
+  let buf = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buf += dec.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        if (!trimmed.startsWith('data: ')) continue
+        const data = trimmed.slice(6)
+        if (data === '[DONE]') continue
+        try {
+          const parsed = JSON.parse(data)
+          const token: string = parsed.choices?.[0]?.delta?.content ?? ''
+          if (token) {
+            fullText += token
+            broadcast(boardId, { type: 'artifact_token', msgId: aiMsgId, artifactId, token })
+          }
+        } catch { /* ignore parse errors */ }
+      }
+    }
+  } catch (err) {
+    broadcast(boardId, { type: 'artifact_ai_error', artifactId, text: String(err) })
+    return
+  }
+
+  // Agent has real filesystem tools — it executed file changes directly.
+  // Broadcast artifact refresh if the source file may have changed.
+  if (fullText.length > 0) {
+    broadcast(boardId, { type: 'artifact_content_updated', artifactId, source: artifact.source })
+  }
+
+  // Save user question + AI response as comments on the artifact's thread
+  const latestBoard = readBoard(rootDir, boardId)
+  if (latestBoard) {
+    if (artifactThreads.length === 0) {
+      const typeMap: Record<string, ArtifactType> = { 'c3-doc': 'c3-doc', flow: 'flow', screen: 'screen', preview: 'preview', ref: 'c3-doc', a2ui: 'a2ui' }
+      const thread: CommentThread = {
+        id: uid(),
+        artifact_id: artifactId,
+        artifact_type: typeMap[artifact.type] ?? artifact.type,
+        artifact_source: artifact.source,
+        x_pct: 0,
+        y_pct: 0,
+        comments: [
+          { id: uid(), author: 'user', text: userText, ts: new Date().toISOString() },
+          { id: aiMsgId, author: 'ai', text: fullText, ts: new Date().toISOString() },
+        ],
+        update_requested: false,
+        status: 'open',
+      }
+      latestBoard.threads.push(thread)
+    } else {
+      const thread = latestBoard.threads.find(t => t.id === artifactThreads[0].id)
+      if (thread) {
+        thread.comments.push(
+          { id: uid(), author: 'user', text: userText, ts: new Date().toISOString() },
+          { id: aiMsgId, author: 'ai', text: fullText, ts: new Date().toISOString() },
+        )
+      }
+    }
+    writeBoard(rootDir, latestBoard)
+    broadcast(boardId, { type: 'artifact_ai_done', msgId: aiMsgId, artifactId, board: latestBoard })
+  }
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -483,6 +653,22 @@ export function createBoardHandler(rootDir: string, opts?: { onTaskEnqueued?: (b
       return Response.json(board)
     }
 
+    // ── POST /__prev/board/:id/artifact/:artifactId/ask — per-artifact AI response
+    const artifactAskMatch = subRoute?.match(/^artifact\/([^/]+)\/ask$/)
+    if (req.method === 'POST' && artifactAskMatch) {
+      const artifactId = artifactAskMatch[1]
+      let body: { text?: string }
+      try { body = await req.json() as typeof body } catch {
+        return Response.json({ error: 'invalid JSON' }, { status: 400 })
+      }
+      if (!body.text) {
+        return Response.json({ error: 'missing text' }, { status: 400 })
+      }
+      // Fire-and-forget: AI response streams via WebSocket
+      generateArtifactResponse(rootDir, boardId, artifactId, body.text).catch(console.error)
+      return Response.json({ ok: true })
+    }
+
     // ── PATCH /__prev/board/:id/artifact/:artifactId — update single artifact (F4 race fix)
     const artifactMatch = subRoute?.match(/^artifact\/([^/]+)$/)
     if (req.method === 'PATCH' && artifactMatch) {
@@ -512,6 +698,20 @@ export function createBoardHandler(rootDir: string, opts?: { onTaskEnqueued?: (b
       writeBoard(rootDir, board)
       broadcast(boardId, { type: 'board_updated', board })
       return Response.json(board)
+    }
+
+    // ── POST /__prev/board/:id/artifact/:artifactId/refresh — signal artifact content changed (R1 fix)
+    // When the AI agent edits the source file of an artifact, it calls this endpoint
+    // to broadcast artifact_content_updated so the frontend re-fetches and re-renders.
+    const refreshMatch = subRoute?.match(/^artifact\/([^/]+)\/refresh$/)
+    if (req.method === 'POST' && refreshMatch) {
+      const artifactId = refreshMatch[1]
+      const board = readBoard(rootDir, boardId)
+      if (!board) return Response.json({ error: 'board not found' }, { status: 404 })
+      const artifact = board.artifacts.find(a => a.id === artifactId)
+      if (!artifact) return Response.json({ error: 'artifact not found' }, { status: 404 })
+      broadcast(boardId, { type: 'artifact_content_updated', artifactId, source: artifact.source })
+      return Response.json({ ok: true })
     }
 
     // ── GET /__prev/board/:id/queue-status ────────────────────────────────

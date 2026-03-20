@@ -137,6 +137,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow-y: auto;
 }
 
 /* ── Resize handle ── */
@@ -510,6 +511,68 @@
   align-self: flex-end;
 }
 
+/* ── AI comment variant ── */
+.artifact-card-comment-ai {
+  background: rgba(124,58,237,0.04);
+  border-radius: 6px;
+}
+
+.artifact-card-comment-ai .artifact-card-comment-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.artifact-card-comment-ai .artifact-card-comment-text .artifact-ai-typing {
+  padding: 2px 0;
+}
+
+/* ── AI typing status bar (popup) ── */
+.artifact-ai-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 6px 8px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(59,130,246,0.08));
+  border: 1px solid rgba(124,58,237,0.15);
+  font-size: 11px;
+  color: #a78bfa;
+}
+
+.artifact-ai-status-bar .artifact-ai-status-label {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.artifact-ai-status-dots {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.artifact-ai-status-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8b5cf6;
+  animation: artifact-ai-status-pulse 1.4s ease-in-out infinite;
+}
+
+.artifact-ai-status-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.artifact-ai-status-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes artifact-ai-status-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
 /* ── Comment input row ── */
 .artifact-card-comment-input {
   display: flex;
@@ -559,4 +622,222 @@
 .artifact-card-comment-input button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/* ── AI generate button ── */
+.artifact-ai-generate-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--fd-border);
+  border-radius: 6px;
+  background: var(--fd-muted);
+  color: var(--fd-foreground);
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.artifact-ai-generate-btn:hover:not(:disabled) {
+  background: #7c3aed;
+  color: #fff;
+  border-color: #7c3aed;
+}
+
+.artifact-ai-generate-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ── AI response content (rendered inside comment) ── */
+
+.artifact-ai-markdown {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fd-foreground);
+}
+
+.artifact-ai-markdown streaming {
+  /* Subtle indicator while still streaming */
+}
+
+.artifact-ai-markdown p {
+  margin: 0 0 4px;
+}
+
+.artifact-ai-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.artifact-ai-markdown code {
+  font-size: 11px;
+  background: var(--fd-muted);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.artifact-ai-markdown pre {
+  margin: 4px 0;
+  padding: 6px 8px;
+  background: var(--fd-muted);
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 11px;
+}
+
+.artifact-ai-markdown pre code {
+  padding: 0;
+  background: none;
+}
+
+/* ── AI typing indicator ── */
+.artifact-ai-typing {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+.artifact-ai-typing span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #7c3aed;
+  opacity: 0.4;
+  animation: artifact-ai-bounce 1.2s infinite;
+}
+
+.artifact-ai-typing span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.artifact-ai-typing span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes artifact-ai-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── Comments popup overlay ── */
+.artifact-comments-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  transition: background 0.15s ease;
+}
+
+.artifact-comments-popup-backdrop.visible {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.artifact-comments-popup {
+  position: relative;
+  width: 440px;
+  max-width: 90vw;
+  height: 450px;
+  max-height: 80vh;
+  background: var(--fd-background);
+  border: 1px solid var(--fd-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: scale(0.95) translateY(8px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.artifact-comments-popup-backdrop.visible .artifact-comments-popup {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.artifact-comments-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--fd-border);
+  background: var(--fd-muted);
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
+}
+
+.artifact-comments-popup-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fd-foreground);
+  flex: 1;
+}
+
+.artifact-comments-popup-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--fd-muted-foreground);
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.artifact-comments-popup-close:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+/* Popup overrides for comment list — fills available space */
+.artifact-comments-popup .artifact-card-comments-list {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Popup overrides for comment input — sticky at bottom */
+.artifact-comments-popup .artifact-card-comment-input {
+  border-radius: 0 0 11px 11px;
+}
+
+/* ── Popup resize handle — bottom edge ── */
+.artifact-comments-popup-resize {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  border-radius: 0 0 11px 11px;
+}
+
+.artifact-comments-popup-resize::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--fd-border);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.artifact-comments-popup:hover .artifact-comments-popup-resize::after {
+  opacity: 1;
 }

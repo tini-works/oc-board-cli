@@ -3,7 +3,7 @@
 // so we pre-build entry.tsx with Bun.build() (which supports explicit plugins)
 // and serve the result from the fetch handler with SSE live reload.
 import path from 'path'
-import { existsSync, readFileSync, statSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { virtualModulesPlugin } from './plugins/virtual-modules'
 import { mdxPlugin } from './plugins/mdx'
@@ -16,6 +16,7 @@ import { createTokensHandler } from './routes/tokens'
 import { handleOgImageRequest } from './routes/og-image'
 import { createApprovalHandler } from './routes/approval'
 import { createBoardHandler, registerBoardWsClient, broadcast } from './routes/board'
+import { readBoard, boardsDir } from './board-utils'
 import { createSotHandler } from './routes/sot'
 import { BoardQueueProcessor } from './board-queue'
 import { loadConfig, updateOrder } from '../config'
@@ -733,12 +734,48 @@ export async function startDevServer(options: DevServerOptions) {
     }))
   }
 
+  // R2: Watch SOT source files for changes — broadcast artifact_content_updated
+  // so artifact cards re-fetch their content when an external agent modifies files
+  let sotRefreshTimer: Timer | null = null
+  const SOT_EXTS = /\.(md|mdx|jsonl)$/
+  const SOT_SKIP_DIRS = new Set(['.prev-boards', 'node_modules', '.git', 'previews'])
+
+  watchers.push(watch(rootDir, { recursive: true }, (_, filename) => {
+    if (!filename || !SOT_EXTS.test(filename)) return
+    // Skip changes in non-SOT directories
+    const firstSegment = filename.split('/')[0]
+    if (firstSegment && SOT_SKIP_DIRS.has(firstSegment)) return
+
+    // Debounce and broadcast
+    if (sotRefreshTimer) clearTimeout(sotRefreshTimer)
+    sotRefreshTimer = setTimeout(() => {
+      const changedPath = filename // relative to rootDir
+      const bDir = boardsDir(rootDir)
+      if (!existsSync(bDir)) return
+      try {
+        for (const entry of readdirSync(bDir)) {
+          if (!entry.endsWith('.json')) continue
+          const boardId = entry.slice(0, -5)
+          const board = readBoard(rootDir, boardId)
+          if (!board) continue
+          const matching = board.artifacts.filter(a => a.source === changedPath)
+          if (matching.length > 0) {
+            for (const a of matching) {
+              broadcast(boardId, { type: 'artifact_content_updated', artifactId: a.id, source: a.source })
+            }
+          }
+        }
+      } catch { /* ignore watcher errors */ }
+    }, 300)
+  }))
+
   return {
     server,
     port: server.port,
     url: `http://localhost:${server.port}/`,
     stop: () => {
       if (rebuildTimer) clearTimeout(rebuildTimer)
+      if (sotRefreshTimer) clearTimeout(sotRefreshTimer)
       watchers.forEach(w => w.close())
       queueProcessor.stop()
       server.stop()
