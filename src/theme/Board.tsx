@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { Board as BoardState, Artifact, ChatMessage } from '../server/routes/board'
 import { BoardCanvas } from './BoardCanvas'
 import { BoardChat } from './BoardChat'
@@ -96,6 +96,47 @@ export function Board({ boardId }: { boardId: string }) {
 
   const { board, setBoard, addArtifact, ws, wsVersion } = useBoardChannel(boardId, started)
 
+  // ── Resizable chat panel ──────────────────────────────────────────────────
+  const [chatWidth, setChatWidth] = useState(() => {
+    const saved = localStorage.getItem('board-chat-width')
+    return saved ? Math.min(Math.max(Number(saved), 240), 700) : 320
+  })
+  const dragging = useRef(false)
+  const startX = useRef(0)
+  const startW = useRef(0)
+
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    dragging.current = true
+    startX.current = e.clientX
+    startW.current = chatWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [chatWidth])
+
+  useEffect(() => {
+    let lastWidth = 0
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return
+      const delta = startX.current - e.clientX
+      lastWidth = Math.min(Math.max(startW.current + delta, 240), 700)
+      setChatWidth(lastWidth)
+    }
+    const onUp = () => {
+      if (!dragging.current) return
+      dragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      if (lastWidth) localStorage.setItem('board-chat-width', String(lastWidth))
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+  }, [])
+
   return (
     <div className="board-layout">
       <div className="board-canvas-panel">
@@ -108,7 +149,8 @@ export function Board({ boardId }: { boardId: string }) {
           wsVersion={wsVersion}
         />
       </div>
-      <div className="board-chat-panel">
+      <div className="board-chat-resize-handle" onMouseDown={onDragStart} />
+      <div className="board-chat-panel" style={{ width: chatWidth }}>
         <BoardChat
           boardId={boardId}
           board={board}

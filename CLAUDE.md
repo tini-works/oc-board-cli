@@ -3,6 +3,16 @@
 This is the **derived repo** for `prev-cli` (fork). All architectural decisions
 are governed by the SOT repository.
 
+## Local Development
+
+```bash
+bun run src/cli.ts dev -p 6863   # Start dev server (board mode)
+```
+
+## Rules
+
+- Don't use `process.env.*` directly in code, define a config object.
+
 ## SOT Location
 
 ```
@@ -35,10 +45,10 @@ c3x check --c3-dir .c3
 
 This fork adds three capabilities on top of upstream prev-cli:
 
-| Component | What | Files |
-|-----------|------|-------|
-| c3-801 approval-store | File-based approval CRUD + webhook emit | `src/server/routes/approval.ts` |
-| c3-802 cr-context | `/__prev/cr-context` endpoint + CR banner | `src/server/routes/approval.ts`, `src/theme/CRPanel.tsx` |
+| Component             | What                                      | Files                                                    |
+| --------------------- | ----------------------------------------- | -------------------------------------------------------- |
+| c3-801 approval-store | File-based approval CRUD + webhook emit   | `src/server/routes/approval.ts`                          |
+| c3-802 cr-context     | `/__prev/cr-context` endpoint + CR banner | `src/server/routes/approval.ts`, `src/theme/CRPanel.tsx` |
 
 ## Key Refs
 

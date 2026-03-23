@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'fs'
 import { uid, boardsDir, readBoard, writeBoard } from './board-utils'
+import { gatewayConfig } from '../config'
 import type { Board, GenerationTask, ChatMessage } from './routes/board'
 
 // ── Task -> agent routing ──────────────────────────────────────────────────────
@@ -67,10 +68,6 @@ export class BoardQueueProcessor {
   private rootDir: string
   private broadcast: (boardId: string, event: object) => void
   private timer: ReturnType<typeof setInterval> | null = null
-  private gatewayProto: string
-  private gatewayHost: string
-  private gatewayPort: number
-  private gatewayToken: string
   // P2 fix: track boards with pending tasks to avoid scanning all files
   private pendingBoardIds = new Set<string>()
   private lastFullScan = 0
@@ -81,10 +78,6 @@ export class BoardQueueProcessor {
   ) {
     this.rootDir = rootDir
     this.broadcast = broadcast
-    this.gatewayProto = process.env.OPENCLAW_GATEWAY_PROTO || 'http'
-    this.gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
-    this.gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
-    this.gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
   }
 
   /** Notify the processor that a board has pending tasks */
@@ -225,16 +218,16 @@ export class BoardQueueProcessor {
     let response: Response
     try {
       response = await fetch(
-        `${this.gatewayProto}://${this.gatewayHost}:${this.gatewayPort}/v1/chat/completions`,
+        `${gatewayConfig.proto}://${gatewayConfig.host}:${gatewayConfig.port}/v1/chat/completions`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.gatewayToken}`,
+            'Authorization': `Bearer ${gatewayConfig.token}`,
             'x-openclaw-agent-id': agentId,
           },
           body: JSON.stringify({
-            model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
+            model: gatewayConfig.model || `openclaw:${agentId}`,
             stream: true,
             messages: [{ role: 'user', content: userMessage }],
           }),

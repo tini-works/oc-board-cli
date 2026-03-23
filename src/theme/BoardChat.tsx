@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { marked } from 'marked'
 import type { Board as BoardState, ChatMessage } from '../server/routes/board'
 import { QueueStatus } from './QueueStatus'
+import { highlightThink } from './ThinkHighlight'
+import './ThinkHighlight.css'
 import './BoardChat.css'
 
 marked.use({ breaks: true, gfm: true })
@@ -25,9 +27,24 @@ function MarkdownContent({ text, streaming }: { text: string; streaming?: boolea
   )
 }
 
+function ThinkingBlock({ text, streaming }: { text: string; streaming?: boolean }) {
+  const [open, setOpen] = useState(false)
+  if (!text) return null
+  return (
+    <details className={`board-chat-thinking${streaming ? ' streaming' : ''}`} open={open || streaming}>
+      <summary onClick={e => { e.preventDefault(); setOpen(!open) }}>
+        {streaming ? 'Thinking\u2026' : 'Thinking'}
+      </summary>
+      <div className="board-chat-thinking-content">{text}</div>
+    </details>
+  )
+}
+
+
 interface StreamingMsg {
   msgId: string
   text: string
+  thinking: string
 }
 
 interface BoardChatProps {
@@ -47,11 +64,14 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
   const [sending, setSending] = useState(false)
   const [streaming, setStreaming] = useState<StreamingMsg | null>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const dragMinH = useRef<number | null>(null)
   const greetedRef = useRef(false)
 
   // I8 fix: RAF-batched token accumulation
   const tokenBufRef = useRef('')
+  const thinkingBufRef = useRef('')
   const streamRafRef = useRef<number | null>(null)
   const streamingMsgIdRef = useRef<string | null>(null)
 
@@ -66,8 +86,22 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
         if (event.type === 'ai_start') {
           setSending(true)
           tokenBufRef.current = ''
+          thinkingBufRef.current = ''
           streamingMsgIdRef.current = event.msgId
-          setStreaming({ msgId: event.msgId, text: '' })
+          setStreaming({ msgId: event.msgId, text: '', thinking: '' })
+        }
+        if (event.type === 'thinking_token' && event.msgId === streamingMsgIdRef.current) {
+          thinkingBufRef.current += event.token
+          if (streamRafRef.current === null) {
+            streamRafRef.current = requestAnimationFrame(() => {
+              streamRafRef.current = null
+              setStreaming(prev =>
+                prev && prev.msgId === streamingMsgIdRef.current
+                  ? { msgId: prev.msgId, text: tokenBufRef.current, thinking: thinkingBufRef.current }
+                  : prev
+              )
+            })
+          }
         }
         if (event.type === 'token' && event.msgId === streamingMsgIdRef.current) {
           // I8 fix: accumulate tokens in ref, flush via RAF
@@ -75,22 +109,21 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
           if (streamRafRef.current === null) {
             streamRafRef.current = requestAnimationFrame(() => {
               streamRafRef.current = null
-              const accumulated = tokenBufRef.current
               setStreaming(prev =>
                 prev && prev.msgId === streamingMsgIdRef.current
-                  ? { msgId: prev.msgId, text: accumulated }
+                  ? { msgId: prev.msgId, text: tokenBufRef.current, thinking: thinkingBufRef.current }
                   : prev
               )
             })
           }
         }
         if (event.type === 'ai_done') {
-          // Cancel any pending RAF
           if (streamRafRef.current !== null) {
             cancelAnimationFrame(streamRafRef.current)
             streamRafRef.current = null
           }
           tokenBufRef.current = ''
+          thinkingBufRef.current = ''
           streamingMsgIdRef.current = null
           setStreaming(null)
           setSending(false)
@@ -102,6 +135,7 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
             streamRafRef.current = null
           }
           tokenBufRef.current = ''
+          thinkingBufRef.current = ''
           streamingMsgIdRef.current = null
           setStreaming(null)
           setSending(false)
@@ -144,8 +178,10 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
   }, [board?.chat.length, streaming?.text])
 
   // ── Send user message ────────────────────────────────────────────────────
+  const sendingRef = useRef(false)
   const sendMessage = useCallback(async () => {
-    if (!text.trim() || sending) return
+    if (!text.trim() || sending || sendingRef.current) return
+    sendingRef.current = true
     const msg = text.trim()
     setText('')
 
@@ -160,8 +196,42 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
       body: JSON.stringify({ author: 'user', text: msg }),
     }).catch(() => {})
 
+    sendingRef.current = false
     inputRef.current?.focus()
   }, [text, sending, boardId])
+
+  // Auto-scale textarea height on content change
+  useEffect(() => {
+    const ta = inputRef.current
+    const wrap = wrapRef.current
+    if (!ta || !wrap) return
+    ta.style.height = '0'
+    const contentH = ta.scrollHeight
+    ta.style.height = ''
+    const minH = dragMinH.current
+    const h = minH && minH > contentH ? minH : contentH
+    wrap.style.height = h + 'px'
+  }, [text])
+
+  // Drag-to-resize from top handle
+  const onDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const wrap = wrapRef.current
+    if (!wrap) return
+    const startY = e.clientY
+    const startH = wrap.offsetHeight
+    const onMove = (ev: MouseEvent) => {
+      const newH = Math.min(650, Math.max(36, startH + (startY - ev.clientY)))
+      dragMinH.current = newH
+      wrap.style.height = newH + 'px'
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [])
 
   const isDisabled = board?.phase === 'generating' || board?.phase === 'done'
 
@@ -256,8 +326,11 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
               </span>
             </div>
             {msg.author === 'openclaw'
-              ? <MarkdownContent text={msg.text} />
-              : <div className="board-chat-user-text">{msg.text}</div>
+              ? <>
+                  {msg.thinking && <ThinkingBlock text={msg.thinking} />}
+                  <MarkdownContent text={msg.text} />
+                </>
+              : <div className="board-chat-user-text">{highlightThink(msg.text)}</div>
             }
           </div>
         ))}
@@ -269,9 +342,10 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
               <span className="board-chat-msg-author">OpenClaw</span>
               <span className="board-chat-msg-time">now</span>
             </div>
+            {streaming.thinking && <ThinkingBlock text={streaming.thinking} streaming />}
             {streaming.text
               ? <MarkdownContent text={streaming.text} streaming />
-              : <div className="board-chat-typing-dots"><span /><span /><span /></div>
+              : !streaming.thinking && <div className="board-chat-typing-dots"><span /><span /><span /></div>
             }
           </div>
         )}
@@ -291,20 +365,28 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
 
       {/* Input */}
       <div className="board-chat-input">
-        <textarea
-          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-          value={text}
-          onChange={e => {
-            setText(e.target.value)
-            const ta = e.target
-            ta.style.height = 'auto'
-            ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
-          }}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-          placeholder={isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}
-          disabled={!!isDisabled}
-          rows={1}
-        />
+        <div className="board-chat-input-wrap" ref={wrapRef}>
+          <div className="board-chat-input-drag" onMouseDown={onDragStart} />
+          <div className="board-chat-input-mirror" aria-hidden="true">
+            {text ? highlightThink(text) : <span className="board-chat-input-placeholder">{isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}</span>}
+          </div>
+          <textarea
+            ref={inputRef}
+            className="board-chat-input-real"
+            value={text}
+            rows={1}
+            onChange={e => setText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.repeat) {
+                e.preventDefault()
+                sendMessage()
+              }
+            }}
+            placeholder=""
+            disabled={!!isDisabled}
+            autoFocus
+          />
+        </div>
         <button
           className="board-chat-send-btn"
           onClick={sendMessage}

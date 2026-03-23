@@ -2,6 +2,7 @@
 import path from 'path'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'fs'
 import { uid, boardsDir, boardPath, readBoard, writeBoard, getOrCreateBoard } from '../board-utils'
+import { gatewayConfig } from '../../config'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +11,7 @@ export interface ChatMessage {
   author: string
   text: string
   ts: string
+  thinking?: string
 }
 
 export type ArtifactType = 'preview' | 'c3-doc' | 'flow' | 'screen' | 'a2ui' | 'ref'
@@ -188,11 +190,8 @@ function buildAgentContext(board: Board, agentId: string): string {
   return ''
 }
 
-async function generateAIResponse(rootDir: string, boardId: string, chatHistory: ChatMessage[], agentId = 'board') {
-  const gatewayProto = process.env.OPENCLAW_GATEWAY_PROTO || 'http'
-  const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
-  const gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
-  const gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
+async function generateAIResponse(rootDir: string, boardId: string, chatHistory: ChatMessage[], agentId = 'board', useThinking = false) {
+  const { proto: gatewayProto, host: gatewayHost, port: gatewayPort, token: gatewayToken } = gatewayConfig
 
   // Read full board state for specialist agents — they need sot, artifacts, threads
   const fullBoard = agentId !== 'board' ? readBoard(rootDir, boardId) : null
@@ -218,8 +217,11 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
         'x-openclaw-agent-id': agentId,
       },
       body: JSON.stringify({
-        model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
+        model: gatewayConfig.model || `openclaw:${agentId}`,
         stream: true,
+        ...(useThinking && gatewayConfig.maxThinkingTokens ? {
+          thinking: { type: 'enabled', budget_tokens: gatewayConfig.maxThinkingTokens },
+        } : {}),
         messages: agentId === 'board'
           ? [{ role: 'system', content: buildSystemPrompt(rootDir) }, ...messages]
           : messages,
@@ -242,6 +244,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
   const reader = response.body!.getReader()
   const dec = new TextDecoder()
   let fullText = ''
+  let thinkingText = ''
   let buf = ''
 
   while (true) {
@@ -259,10 +262,15 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
       if (data === '[DONE]') continue
       try {
         const parsed = JSON.parse(data)
-        const token: string = parsed.choices?.[0]?.delta?.content ?? ''
+        const delta = parsed.choices?.[0]?.delta
+        const thinking: string = delta?.reasoning ?? delta?.reasoning_content ?? ''
+        if (thinking) {
+          thinkingText += thinking
+          broadcast(boardId, { type: 'thinking_token', msgId: aiMsgId, token: thinking })
+        }
+        const token: string = delta?.content ?? ''
         if (token) {
           fullText += token
-          // Broadcast each token to all connected clients
           broadcast(boardId, { type: 'token', msgId: aiMsgId, token })
         }
       } catch { /* ignore */ }
@@ -275,6 +283,7 @@ async function generateAIResponse(rootDir: string, boardId: string, chatHistory:
     author: 'openclaw',
     text: fullText,
     ts: new Date().toISOString(),
+    ...(thinkingText ? { thinking: thinkingText } : {}),
   }
   const board = getOrCreateBoard(rootDir, boardId)
   board.chat.push(aiMsg)
@@ -644,7 +653,8 @@ export function createBoardHandler(rootDir: string, opts?: { onTaskEnqueued?: (b
       // Trigger AI response asynchronously — don't await, return immediately
       if (body.author === 'user') {
         const agentId = detectAgentId(body.text)
-        generateAIResponse(rootDir, boardId, board.chat, agentId).catch(console.error)
+        const useThinking = /\bthink\b/i.test(body.text)
+        generateAIResponse(rootDir, boardId, board.chat, agentId, useThinking).catch(console.error)
       }
 
       return Response.json({ ok: true, message })
