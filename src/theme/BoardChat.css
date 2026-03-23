@@ -307,7 +307,8 @@
   flex-shrink: 0;
 }
 
-.board-chat-input input {
+.board-chat-input input,
+.board-chat-input textarea {
   flex: 1;
   padding: 9px 13px;
   border: 1px solid var(--fd-border);
@@ -318,14 +319,20 @@
   font-family: var(--fd-font-sans);
   outline: none;
   transition: border-color 0.15s;
+  resize: none;
+  min-height: 36px;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
-.board-chat-input input:focus {
+.board-chat-input input:focus,
+.board-chat-input textarea:focus {
   border-color: #7c3aed;
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
 }
 
-.board-chat-input input:disabled {
+.board-chat-input input:disabled,
+.board-chat-input textarea:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

@@ -581,7 +581,8 @@
   border-top: 1px solid var(--fd-border);
 }
 
-.artifact-card-comment-input input {
+.artifact-card-comment-input input,
+.artifact-card-comment-input textarea {
   flex: 1;
   font-size: 12px;
   padding: 4px 8px;
@@ -591,9 +592,14 @@
   color: var(--fd-foreground);
   outline: none;
   font-family: var(--fd-font-sans);
+  resize: none;
+  min-height: 30px;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
-.artifact-card-comment-input input:focus {
+.artifact-card-comment-input input:focus,
+.artifact-card-comment-input textarea:focus {
   border-color: #7c3aed;
 }
 
@@ -841,3 +847,148 @@
 .artifact-comments-popup:hover .artifact-comments-popup-resize::after {
   opacity: 1;
 }
+
+/* ── SOT warning ── */
+.artifact-sot-warning {
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: 6px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  font-size: 11px;
+  color: #d97706;
+  line-height: 1.4;
+}
+
+/* ── Generate Proposal button ── */
+.artifact-proposal-generate-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  margin: 6px 8px;
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(59, 130, 246, 0.06));
+  color: #7c3aed;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--fd-font-sans);
+  cursor: pointer;
+  transition: all 0.15s;
+  align-self: center;
+}
+
+.artifact-proposal-generate-btn:hover {
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(59, 130, 246, 0.14));
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+/* ── Proposal generating indicator ── */
+.artifact-proposal-generating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 6px 8px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(59, 130, 246, 0.06));
+  font-size: 11px;
+  color: #8b5cf6;
+}
+
+/* ── Proposal panel ── */
+.artifact-proposal-panel {
+  border: 1px solid var(--fd-border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.artifact-proposal-header {
+  padding: 6px 10px;
+  background: var(--fd-muted);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fd-muted-foreground);
+  border-bottom: 1px solid var(--fd-border);
+}
+
+.artifact-proposal-header code {
+  font-family: var(--fd-font-mono);
+  font-size: 10px;
+  background: var(--fd-border);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ── Diff view ── */
+.artifact-diff {
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--fd-background);
+  font-family: var(--fd-font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.artifact-diff-line {
+  display: flex;
+  min-height: 18px;
+  padding: 0 6px;
+}
+
+.artifact-diff-marker {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  font-weight: 700;
+  user-select: none;
+}
+
+.artifact-diff-content {
+  white-space: pre-wrap;
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+
+.artifact-diff-equal { color: var(--fd-muted-foreground); }
+.artifact-diff-equal .artifact-diff-marker { color: var(--fd-border); }
+.artifact-diff-add { background: rgba(16, 185, 129, 0.08); color: #065f46; }
+.artifact-diff-add .artifact-diff-marker { color: #10b981; }
+.artifact-diff-remove { background: rgba(239, 68, 68, 0.06); color: #991b1b; }
+.artifact-diff-remove .artifact-diff-marker { color: #ef4444; }
+
+.dark .artifact-diff-add { background: rgba(16, 185, 129, 0.12); color: #6ee7b7; }
+.dark .artifact-diff-add .artifact-diff-marker { color: #34d399; }
+.dark .artifact-diff-remove { background: rgba(239, 68, 68, 0.1); color: #fca5a5; }
+.dark .artifact-diff-remove .artifact-diff-marker { color: #f87171; }
+
+/* ── Proposal action buttons ── */
+.artifact-proposal-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--fd-border);
+  background: var(--fd-muted);
+}
+
+.artifact-proposal-apply, .artifact-proposal-discard {
+  padding: 5px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--fd-font-sans);
+  cursor: pointer;
+  transition: all 0.1s;
+  border: 1px solid transparent;
+}
+
+.artifact-proposal-apply { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+.artifact-proposal-apply:hover:not(:disabled) { background: #6d28d9; }
+.artifact-proposal-apply:disabled { opacity: 0.5; cursor: default; }
+
+.artifact-proposal-discard { background: transparent; color: var(--fd-muted-foreground); border-color: var(--fd-border); }
+.artifact-proposal-discard:hover:not(:disabled) { background: var(--fd-border); color: var(--fd-foreground); }
+.artifact-proposal-discard:disabled { opacity: 0.5; cursor: default; }

@@ -291,15 +291,19 @@ export function BoardChat({ boardId, board, setBoard, ws, wsVersion, started, ch
 
       {/* Input */}
       <div className="board-chat-input">
-        <input
-          ref={inputRef}
-          type="text"
+        <textarea
+          ref={inputRef as React.RefObject<HTMLTextAreaElement>}
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            setText(e.target.value)
+            const ta = e.target
+            ta.style.height = 'auto'
+            ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+          }}
           onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
           placeholder={isDisabled ? 'Chat disabled during generation' : 'Message OpenClaw\u2026'}
           disabled={!!isDisabled}
-          autoFocus
+          rows={1}
         />
         <button
           className="board-chat-send-btn"

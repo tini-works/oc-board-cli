@@ -333,6 +333,11 @@ const ArtifactCard = React.memo(function ArtifactCard({
   const [pendingUserText, setPendingUserText] = useState('')
   const handleGenerateRef = useRef<() => Promise<void>>(async () => {})
 
+  // Proposal state (confirm-before-apply)
+  const [proposal, setProposal] = useState<{ before: string; after: string; source: string; diff: { type: string; content: string }[] } | null>(null)
+  const [proposalStatus, setProposalStatus] = useState<'idle' | 'generating' | 'ready' | 'applying'>('idle')
+  const [sotWarning, setSotWarning] = useState(false)
+
   const allComments = threads.flatMap(t => t.comments)
   const commentCount = allComments.length
 
@@ -412,6 +417,14 @@ const ArtifactCard = React.memo(function ArtifactCard({
           setAiResponse('')
           setPendingUserText('')
         }
+        if (event.type === 'artifact_proposal') {
+          setProposal({ before: event.before, after: event.after, source: event.source, diff: event.diff })
+          setProposalStatus('ready')
+        }
+        if (event.type === 'artifact_proposal_applied') {
+          setProposal(null)
+          setProposalStatus('idle')
+        }
       } catch { /* ignore */ }
     }
 
@@ -451,6 +464,36 @@ const ArtifactCard = React.memo(function ArtifactCard({
   }, [commentText, aiStatus, boardId, artifact.id])
 
   handleGenerateRef.current = handleGenerate
+
+  const handleGenerateProposal = useCallback(async () => {
+    if (proposalStatus !== 'idle' && proposalStatus !== 'ready') return
+    setProposalStatus('generating')
+    setProposal(null)
+    try {
+      const res = await fetch(`/__prev/board/${boardId}/artifact/${artifact.id}/generate-proposal`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data.sotConfigured === false) setSotWarning(true)
+        setProposalStatus('idle')
+      }
+    } catch { setProposalStatus('idle') }
+  }, [proposalStatus, boardId, artifact.id])
+
+  const handleApplyProposal = useCallback(async () => {
+    if (!proposal || proposalStatus !== 'ready') return
+    setProposalStatus('applying')
+    try {
+      await fetch(`/__prev/board/${boardId}/artifact/${artifact.id}/apply-proposal`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ after: proposal.after }),
+      })
+    } catch { setProposalStatus('ready') }
+  }, [proposal, proposalStatus, boardId, artifact.id])
+
+  const handleDiscardProposal = useCallback(() => {
+    setProposal(null)
+    setProposalStatus('idle')
+  }, [])
 
   return (
     <div
@@ -494,6 +537,11 @@ const ArtifactCard = React.memo(function ArtifactCard({
       {/* Comments popup — portal overlay */}
       <ArtifactCommentsPopup open={openComments} onClose={() => setOpenComments(false)}>
         <div className="artifact-card-comments-list" ref={commentListRef}>
+          {sotWarning && (
+            <div className="artifact-sot-warning">
+              SOT repo not configured. Agent can only chat, cannot modify files.
+            </div>
+          )}
           {allComments.length === 0 && !pendingUserText && aiStatus === 'idle' && (
             <div className="artifact-card-comments-empty">No comments yet</div>
           )}
@@ -539,16 +587,61 @@ const ArtifactCard = React.memo(function ArtifactCard({
               </div>
             </>
           )}
+          {aiStatus === 'idle' && allComments.length > 0 && proposalStatus === 'idle' && !proposal && (
+            <button
+              className="artifact-proposal-generate-btn"
+              onClick={e => { e.stopPropagation(); handleGenerateProposal() }}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              {'\u2728'} Generate Proposal
+            </button>
+          )}
+          {proposalStatus === 'generating' && (
+            <div className="artifact-proposal-generating">
+              <div className="artifact-ai-status-dots"><span /><span /><span /></div>
+              <span>Generating proposal...</span>
+            </div>
+          )}
+          {proposal && (
+            <div className="artifact-proposal-panel" onClick={e => e.stopPropagation()}>
+              <div className="artifact-proposal-header">
+                <span>Proposed changes for <code>{proposal.source}</code></span>
+              </div>
+              <div className="artifact-diff">
+                {proposal.diff.map((chunk, i) => (
+                  <div key={i} className={`artifact-diff-line artifact-diff-${chunk.type}`}>
+                    <span className="artifact-diff-marker">
+                      {chunk.type === 'add' ? '+' : chunk.type === 'remove' ? '\u2212' : ' '}
+                    </span>
+                    <span className="artifact-diff-content">{chunk.content || '\u00a0'}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="artifact-proposal-actions">
+                <button className="artifact-proposal-apply" onClick={e => { e.stopPropagation(); handleApplyProposal() }} disabled={proposalStatus === 'applying'} onMouseDown={e => e.stopPropagation()}>
+                  {proposalStatus === 'applying' ? 'Applying...' : '\u2713 Apply'}
+                </button>
+                <button className="artifact-proposal-discard" onClick={e => { e.stopPropagation(); handleDiscardProposal() }} disabled={proposalStatus === 'applying'} onMouseDown={e => e.stopPropagation()}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div className="artifact-card-comment-input">
-          <input
-            type="text"
+          <textarea
             placeholder="Ask about this artifact..."
             value={commentText}
-            onChange={e => setCommentText(e.target.value)}
+            onChange={e => {
+              setCommentText(e.target.value)
+              const ta = e.target
+              ta.style.height = 'auto'
+              ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+            }}
             onKeyDown={handleCommentKeyDown}
             disabled={aiStatus !== 'idle'}
             onMouseDown={e => e.stopPropagation()}
+            rows={1}
           />
           <button
             className="artifact-ai-generate-btn"

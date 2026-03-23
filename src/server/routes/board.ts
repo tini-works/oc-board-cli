@@ -1,6 +1,6 @@
 // board.ts — server-side board state persistence + real-time channel
 import path from 'path'
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'fs'
 import { uid, boardsDir, boardPath, readBoard, writeBoard, getOrCreateBoard } from '../board-utils'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -138,10 +138,21 @@ Guidelines:
 - Keep a warm, competent tone`
 }
 
-function buildArtifactSystemPrompt() {
+function buildArtifactSystemPrompt(sotRepoPath?: string | null) {
+  const sotSection = sotRepoPath
+    ? `
+
+SOT Repo: The artifact source files live in the SOT repository at: ${sotRepoPath}
+- You can READ files there for context, but do NOT write/modify files directly.
+- When the user asks for changes, describe what you would change and why. The user will then click "Generate Proposal" to see a diff before any changes are applied.`
+    : `
+
+NOTE: No SOT repository is configured. You can discuss the artifact but cannot modify its source file.`
+
   return `You are an AI assistant helping a user discuss and iterate on a specific artifact on a collaborative board inside prev-cli.
 
-You have filesystem access — use your tools to read, write, and execute files as needed. When the user asks you to create or modify a file, use your tools to do it directly.
+You have filesystem access — use your tools to read files and execute commands as needed.
+${sotSection}
 
 Key paths in the workspace:
 - .c3/ — C3 architecture docs
@@ -151,7 +162,7 @@ Key paths in the workspace:
 Guidelines:
 - Be concise — this is a small inline panel, not a full chat
 - Use markdown sparingly: **bold**, \`code\`
-- When modifying files, make the changes and briefly describe what you did
+- When suggesting changes, clearly describe WHAT would change and WHY
 - Suggest improvements or point out issues when relevant`
 }
 
@@ -308,10 +319,13 @@ async function generateArtifactResponse(
 
   // Build messages: system prompt with artifact context + the user's new message
   // Gateway session handles prior conversation history, so we only send the new turn
-  const artifactContext = `This is an artifact on a collaborative board.\n- Artifact: ${artifact.title || artifact.source}\n- Type: ${artifact.type}\n- Source: ${artifact.source}\n- Artifact-ID: ${artifactId}\n- Board-ID: ${boardId}`
+  const sotRepoPath = board.sot || process.env.SOT_REPO_PATH || null
+  const sotInfo = sotRepoPath ? `\n- SOT Repo: ${sotRepoPath}` : ''
+
+  const artifactContext = `This is an artifact on a collaborative board.\n- Artifact: ${artifact.title || artifact.source}\n- Type: ${artifact.type}\n- Source: ${artifact.source}\n- Artifact-ID: ${artifactId}\n- Board-ID: ${boardId}${sotInfo}`
 
   const messages: { role: 'system' | 'user'; content: string }[] = [
-    { role: 'system', content: buildArtifactSystemPrompt() + '\n\n' + artifactContext },
+    { role: 'system', content: buildArtifactSystemPrompt(sotRepoPath) + '\n\n' + artifactContext },
     { role: 'user', content: userText },
   ]
 
@@ -420,6 +434,110 @@ async function generateArtifactResponse(
     writeBoard(rootDir, latestBoard)
     broadcast(boardId, { type: 'artifact_ai_done', msgId: aiMsgId, artifactId, board: latestBoard })
   }
+}
+
+// ── Proposal generation (confirm-before-apply) ────────────────────────────────
+
+function simpleDiff(before: string, after: string): { type: 'equal' | 'add' | 'remove'; content: string }[] {
+  const beforeLines = before.split('\n')
+  const afterLines = after.split('\n')
+  const result: { type: 'equal' | 'add' | 'remove'; content: string }[] = []
+
+  const maxLen = Math.max(beforeLines.length, afterLines.length)
+  if (maxLen > 2000) {
+    if (before === after) return [{ type: 'equal', content: before }]
+    return [{ type: 'remove', content: before }, { type: 'add', content: after }]
+  }
+
+  let bi = 0, ai = 0
+  while (bi < beforeLines.length || ai < afterLines.length) {
+    if (bi < beforeLines.length && ai < afterLines.length && beforeLines[bi] === afterLines[ai]) {
+      result.push({ type: 'equal', content: beforeLines[bi] }); bi++; ai++
+    } else if (bi < beforeLines.length && (ai >= afterLines.length || !afterLines.slice(ai).includes(beforeLines[bi]))) {
+      result.push({ type: 'remove', content: beforeLines[bi] }); bi++
+    } else if (ai < afterLines.length && (bi >= beforeLines.length || !beforeLines.slice(bi).includes(afterLines[ai]))) {
+      result.push({ type: 'add', content: afterLines[ai] }); ai++
+    } else {
+      result.push({ type: 'remove', content: beforeLines[bi] }); bi++
+    }
+  }
+  return result
+}
+
+async function generateProposal(
+  rootDir: string, boardId: string, artifactId: string,
+): Promise<{ before: string; after: string; source: string; diff: { type: string; content: string }[] } | null> {
+  const board = readBoard(rootDir, boardId)
+  if (!board) return null
+  const artifact = board.artifacts.find(a => a.id === artifactId)
+  if (!artifact) return null
+
+  const sotRepoPath = board.sot || process.env.SOT_REPO_PATH || null
+  if (!sotRepoPath) return null
+
+  const sourceFullPath = path.resolve(sotRepoPath, artifact.source)
+  if (!existsSync(sourceFullPath)) return null
+  const before = readFileSync(sourceFullPath, 'utf-8')
+
+  const gatewayProto = process.env.OPENCLAW_GATEWAY_PROTO || 'http'
+  const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN || ''
+  const gatewayHost = process.env.OPENCLAW_GATEWAY_HOST || 'host.docker.internal'
+  const gatewayPort = parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10)
+  const agentId = process.env.OPENCLAW_AGENT_ID || 'sot-artifact-editor'
+  const sessionKey = `board:${boardId}:artifact:${artifactId}`
+
+  const proposalPrompt = `Based on the changes you proposed in our conversation, output the COMPLETE updated content of the file \`${artifact.source}\`.
+
+Output ONLY the file content — no explanations, no markdown fences, no preamble. Start from the very first line of the file.`
+
+  let response: Response
+  try {
+    response = await fetch(`${gatewayProto}://${gatewayHost}:${gatewayPort}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${gatewayToken}`,
+        'x-openclaw-agent-id': agentId,
+        'x-openclaw-session-key': sessionKey,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENCLAW_MODEL || `openclaw:${agentId}`,
+        stream: false,
+        messages: [
+          { role: 'system', content: buildArtifactSystemPrompt(sotRepoPath) },
+          { role: 'user', content: proposalPrompt },
+        ],
+      }),
+    })
+  } catch { return null }
+  if (!response.ok) return null
+
+  const data = await response.json() as any
+  let after = data.choices?.[0]?.message?.content || ''
+  after = after.replace(/^```(?:\w+)?\s*\n?/, '').replace(/\n?```\s*$/, '').replace(/^\n+/, '').replace(/\n+$/, '')
+
+  const diff = simpleDiff(before, after)
+  broadcast(boardId, { type: 'artifact_proposal', artifactId, source: artifact.source, before, after, diff })
+  return { before, after, source: artifact.source, diff }
+}
+
+async function applyProposal(rootDir: string, boardId: string, artifactId: string, after: string): Promise<boolean> {
+  const board = readBoard(rootDir, boardId)
+  if (!board) return false
+  const artifact = board.artifacts.find(a => a.id === artifactId)
+  if (!artifact) return false
+  const sotRepoPath = board.sot || process.env.SOT_REPO_PATH || null
+  if (!sotRepoPath) return false
+
+  const sourceFullPath = path.resolve(sotRepoPath, artifact.source)
+  if (!existsSync(sourceFullPath)) return false
+
+  try {
+    writeFileSync(sourceFullPath, after, 'utf-8')
+    broadcast(boardId, { type: 'artifact_content_updated', artifactId, source: artifact.source })
+    broadcast(boardId, { type: 'artifact_proposal_applied', artifactId })
+    return true
+  } catch { return false }
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -711,6 +829,40 @@ export function createBoardHandler(rootDir: string, opts?: { onTaskEnqueued?: (b
       const artifact = board.artifacts.find(a => a.id === artifactId)
       if (!artifact) return Response.json({ error: 'artifact not found' }, { status: 404 })
       broadcast(boardId, { type: 'artifact_content_updated', artifactId, source: artifact.source })
+      return Response.json({ ok: true })
+    }
+
+    // ── POST /__prev/board/:id/artifact/:artifactId/generate-proposal ──
+    const proposalMatch = subRoute?.match(/^artifact\/([^/]+)\/generate-proposal$/)
+    if (req.method === 'POST' && proposalMatch) {
+      const artifactId = proposalMatch[1]
+      const board = readBoard(rootDir, boardId)
+      if (!board) return Response.json({ error: 'board not found' }, { status: 404 })
+      const artifact = board.artifacts.find(a => a.id === artifactId)
+      if (!artifact) return Response.json({ error: 'artifact not found' }, { status: 404 })
+
+      const sotRepoPath = board.sot || process.env.SOT_REPO_PATH || null
+      if (!sotRepoPath) {
+        return Response.json({ error: 'SOT repo not configured', sotConfigured: false }, { status: 400 })
+      }
+
+      const result = await generateProposal(rootDir, boardId, artifactId)
+      if (!result) return Response.json({ error: 'Failed to generate proposal' }, { status: 500 })
+      return Response.json({ ok: true, ...result })
+    }
+
+    // ── POST /__prev/board/:id/artifact/:artifactId/apply-proposal ──
+    const applyMatch = subRoute?.match(/^artifact\/([^/]+)\/apply-proposal$/)
+    if (req.method === 'POST' && applyMatch) {
+      const artifactId = applyMatch[1]
+      let body: { after?: string }
+      try { body = await req.json() as typeof body } catch {
+        return Response.json({ error: 'invalid JSON' }, { status: 400 })
+      }
+      if (!body.after) return Response.json({ error: 'missing after content' }, { status: 400 })
+
+      const success = await applyProposal(rootDir, boardId, artifactId, body.after)
+      if (!success) return Response.json({ error: 'Failed to apply proposal' }, { status: 500 })
       return Response.json({ ok: true })
     }
 
