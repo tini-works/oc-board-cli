@@ -27,6 +27,8 @@ const GRID_ROW_GAP = 40   // vertical gap between rows (content height is variab
 const GRID_COL_GAP = 24
 const ZOOM_MIN = 0.2
 const ZOOM_MAX = 3
+const BOARD_W = 3000
+const BOARD_H = 3000
 
 // ── Auto-placement grid ───────────────────────────────────────────────────────
 // F3 fix: accepts cursors array as param instead of module-level state
@@ -37,6 +39,14 @@ function autoPosition(index: number, cursors: number[]) {
   const y = cursors[col]
   cursors[col] = (cursors[col] ?? 24) + 400 + GRID_ROW_GAP
   return { x, y }
+}
+
+// Calculate center position for the first artifact placement, clamped to board bounds
+function centerStartPosition(viewportW: number, viewportH: number, numArtifacts: number): { x: number; y: number } {
+  const totalWidth = GRID_COLS * CARD_W + (GRID_COLS - 1) * GRID_COL_GAP
+  const offsetX = Math.max(24, Math.min(BOARD_W - CARD_W, (viewportW - totalWidth) / 2))
+  const offsetY = Math.max(24, Math.min(BOARD_H - 400, (viewportH - 400) / 2))
+  return { x: offsetX, y: offsetY }
 }
 
 // ── Mermaid / D2 — bake SVGs into HTML string before setting state ────────────
@@ -837,8 +847,8 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
       if (dragging.current) {
         const dx = (e.clientX - dragging.current.startMouse.x) / zoom
         const dy = (e.clientY - dragging.current.startMouse.y) / zoom
-        const newX = Math.max(0, dragging.current.startPos.x + dx)
-        const newY = Math.max(0, dragging.current.startPos.y + dy)
+        const newX = Math.max(0, Math.min(BOARD_W - CARD_W, dragging.current.startPos.x + dx))
+        const newY = Math.max(0, Math.min(BOARD_H - CARD_MIN_H, dragging.current.startPos.y + dy))
         dragging.current.current = { x: newX, y: newY }
         scheduleRaf()
         return
@@ -1014,8 +1024,10 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
 
   const handleAddFile = (file: SotFile) => {
     const index = board?.artifacts.length ?? 0
-    // F3 fix: use instance-scoped cursors
-    const pos = autoPosition(index, colCursorsRef.current)
+    // Center first artifact, grid-position subsequent ones
+    const pos = index === 0
+      ? centerStartPosition(window.innerWidth, window.innerHeight, 0)
+      : autoPosition(index, colCursorsRef.current)
     const typeMap: Record<string, Artifact['type']> = {
       flow: 'flow', screen: 'screen', doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui',
     }
@@ -1107,6 +1119,9 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
           className="board-canvas-stage"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}
         >
+          {/* Board boundary — scales with zoom since it's inside the stage */}
+          <div className="board-boundary" style={{ position: 'absolute', left: 0, top: 0, width: BOARD_W, height: BOARD_H }} />
+
           {artifacts.length === 0 && (
             <div className="canvas-empty-hint" style={{ position: 'absolute', left: 120, top: 80, pointerEvents: 'none' }}>
               <span style={{ fontSize: 32, opacity: 0.15 }}>{'\u25fb'}</span>

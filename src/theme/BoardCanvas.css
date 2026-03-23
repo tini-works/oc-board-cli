@@ -21,6 +21,15 @@
   pointer-events: none;
 }
 
+/* ── Board boundary (artboard) ── */
+.board-boundary {
+  pointer-events: none;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
 /* ── Zoomable/pannable stage ── */
 .board-canvas-stage {
   position: absolute;
