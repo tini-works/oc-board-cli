@@ -1,13 +1,25 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { marked } from 'marked'
-import type { Board, Artifact } from '../server/routes/board'
+import type { Board, Artifact, CommentThread } from '../server/routes/board'
 import type { SotFile } from '../server/routes/sot'
 import './BoardCanvas.css'
 
 marked.use({ breaks: true, gfm: true })
 
-const TYPE_ICON: Record<string, string> = { flow: '\u21e2', screen: '\u25a3', doc: '\ud83d\udcc4', ref: '\ud83d\udcce', preview: '\u2b21', a2ui: '\u2726' }
-const TYPE_LABEL: Record<string, string> = { flow: 'Flow', screen: 'Screen', doc: 'Doc', ref: 'Ref', preview: 'Preview', a2ui: 'A2UI' }
+// Simple markdown renderer for AI responses (trusted content from OpenClaw gateway)
+function MarkdownContent({ text, streaming }: { text: string; streaming?: boolean }) {
+  const html = useMemo(() => marked.parse(text) as string, [text])
+  return (
+    <div
+      className={`artifact-ai-markdown${streaming ? ' streaming' : ''}`}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
+const TYPE_ICON: Record<string, string> = { flow: '\u21e2', screen: '\u25a3', doc: '\ud83d\udcc4', ref: '\ud83d\udcce', preview: '\u2b21', a2ui: '\u2726', 'json-screen': '\u25a3' }
+const TYPE_LABEL: Record<string, string> = { flow: 'Flow', screen: 'Screen', doc: 'Doc', ref: 'Ref', preview: 'Preview', a2ui: 'A2UI', 'json-screen': 'Screen' }
 
 const CARD_W = 380
 const GRID_COLS = 3
@@ -15,6 +27,8 @@ const GRID_ROW_GAP = 40   // vertical gap between rows (content height is variab
 const GRID_COL_GAP = 24
 const ZOOM_MIN = 0.2
 const ZOOM_MAX = 3
+const BOARD_W = 3000
+const BOARD_H = 3000
 
 // ── Auto-placement grid ───────────────────────────────────────────────────────
 // F3 fix: accepts cursors array as param instead of module-level state
@@ -25,6 +39,14 @@ function autoPosition(index: number, cursors: number[]) {
   const y = cursors[col]
   cursors[col] = (cursors[col] ?? 24) + 400 + GRID_ROW_GAP
   return { x, y }
+}
+
+// Calculate center position for the first artifact placement, clamped to board bounds
+function centerStartPosition(viewportW: number, viewportH: number, numArtifacts: number): { x: number; y: number } {
+  const totalWidth = GRID_COLS * CARD_W + (GRID_COLS - 1) * GRID_COL_GAP
+  const offsetX = Math.max(24, (viewportW - totalWidth) / 2)
+  const offsetY = Math.max(24, (viewportH - 400) / 2)
+  return { x: offsetX, y: offsetY }
 }
 
 // ── Mermaid / D2 — bake SVGs into HTML string before setting state ────────────
@@ -109,7 +131,8 @@ async function injectDiagramSvgs(rawHtml: string): Promise<string> {
 // server-side SOT markdown files (trusted internal content), not user input.
 
 // F8 fix: add cancellation flag to prevent stale async updates
-function DocRenderer({ src }: { src: string }) {
+// R1 fix: add refreshKey prop to force re-fetch when artifact source file changes
+function DocRenderer({ src, refreshKey }: { src: string; refreshKey?: number }) {
   const [html, setHtml] = useState('')
   useEffect(() => {
     let cancelled = false
@@ -122,11 +145,11 @@ function DocRenderer({ src }: { src: string }) {
       })
       .catch(() => { if (!cancelled) setHtml('<p style="opacity:.4">Could not load.</p>') })
     return () => { cancelled = true }
-  }, [src])
+  }, [src, refreshKey])
   return <div className="artifact-body artifact-doc" dangerouslySetInnerHTML={{ __html: html }} />
 }
 
-function FlowRenderer({ src }: { src: string }) {
+function FlowRenderer({ src, refreshKey }: { src: string; refreshKey?: number }) {
   const [html, setHtml] = useState('')
 
   useEffect(() => {
@@ -140,7 +163,7 @@ function FlowRenderer({ src }: { src: string }) {
       })
       .catch(() => { if (!cancelled) setHtml('<p style="opacity:.4">Could not load.</p>') })
     return () => { cancelled = true }
-  }, [src])
+  }, [src, refreshKey])
 
   return <div className="artifact-body artifact-doc" dangerouslySetInnerHTML={{ __html: html }} />
 }
@@ -172,8 +195,123 @@ function A2UIRenderer({ src, fillHeight }: { src: string; fillHeight: boolean })
   )
 }
 
+// ── JSON screen renderer — renders json-render-ui screen via iframe ───────────
+function JsonScreenRenderer({ src, fillHeight }: { src: string; fillHeight: boolean }) {
+  // src is "json-screen:login" — extract the screen key
+  const screenKey = src.replace(/^json-screen:/, '')
+  const rendererUrl = `/__prev/screen-render?screen=${encodeURIComponent(screenKey)}`
+  return (
+    <iframe
+      className={`artifact-iframe artifact-iframe-a2ui${fillHeight ? ' artifact-iframe--fill' : ''}`}
+      src={rendererUrl}
+      title={`Screen: ${screenKey}`}
+      loading="lazy"
+    />
+  )
+}
+
 const CARD_MIN_W = 240
 const CARD_MIN_H = 80
+
+// ── Comments popup — portal overlay ───────────────────────────────────────────
+function ArtifactCommentsPopup({
+  open,
+  onClose,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  const [visible, setVisible] = useState(false)
+  const [animating, setAnimating] = useState(false)
+  const [popupHeight, setPopupHeight] = useState<number | null>(null)
+  const resizingRef = useRef<{ startY: number; startH: number } | null>(null)
+  const rafRef = useRef<number | null>(null)
+  const pendingHRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      setPopupHeight(null)
+      requestAnimationFrame(() => { setVisible(true); setAnimating(true) })
+    } else {
+      setAnimating(false)
+    }
+  }, [open])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!resizingRef.current) return
+      const dy = e.clientY - resizingRef.current.startY
+      const newH = Math.max(250, resizingRef.current.startH + dy)
+      pendingHRef.current = newH
+      if (rafRef.current === null) {
+        rafRef.current = requestAnimationFrame(() => {
+          rafRef.current = null
+          if (pendingHRef.current !== null) {
+            setPopupHeight(pendingHRef.current)
+            pendingHRef.current = null
+          }
+        })
+      }
+    }
+    const onUp = () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+      resizingRef.current = null
+      pendingHRef.current = null
+      document.body.style.cursor = ''
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    }
+  }, [])
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const popupEl = (e.currentTarget as HTMLElement).parentElement as HTMLElement
+    const startH = popupEl?.getBoundingClientRect().height ?? 450
+    resizingRef.current = { startY: e.clientY, startH }
+    document.body.style.cursor = 'ns-resize'
+  }
+
+  const handleTransitionEnd = () => {
+    if (!animating && visible && !open) setVisible(false)
+    if (!animating) setAnimating(true)
+  }
+
+  if (!open && !visible) return null
+
+  return createPortal(
+    <div className={`artifact-comments-popup-backdrop${visible ? ' visible' : ''}`} onClick={onClose}>
+      <div
+        className="artifact-comments-popup"
+        style={popupHeight !== null ? { height: popupHeight } : undefined}
+        onClick={e => e.stopPropagation()}
+        onTransitionEnd={handleTransitionEnd}
+      >
+        <div className="artifact-comments-popup-header">
+          <span className="artifact-comments-popup-title">{'\ud83d\udcac'} Comments</span>
+          <button className="artifact-comments-popup-close" onClick={onClose} title="Close">{'\u00d7'}</button>
+        </div>
+        {children}
+        <div
+          className="artifact-comments-popup-resize"
+          onMouseDown={handleResizeStart}
+          title="Drag to resize"
+        />
+      </div>
+    </div>,
+    document.body
+  )
+}
 
 // ── Artifact card (draggable + resizable) — P5 fix: wrapped in React.memo ────
 
@@ -185,17 +323,192 @@ interface ArtifactCardProps {
   onDragStart: (id: string, e: React.MouseEvent) => void
   onResizeStart: (id: string, e: React.MouseEvent) => void
   onRemove: (id: string) => void
+  boardId: string
+  threads: CommentThread[]
+  onRefresh: () => void
+  ws: React.RefObject<WebSocket | null>
+  wsVersion: number
+  globalRefreshKey: number
 }
 
 const ArtifactCard = React.memo(function ArtifactCard({
   artifact, position, zoom, localSize, onDragStart, onResizeStart, onRemove,
+  boardId, threads, onRefresh, ws, wsVersion, globalRefreshKey,
 }: ArtifactCardProps) {
   const typeMap: Record<string, string> = { 'c3-doc': 'doc', flow: 'flow', screen: 'screen', preview: 'preview', ref: 'ref' }
   const displayType = typeMap[artifact.type] ?? artifact.type
   const title = artifact.title || artifact.source.split('/').pop()?.replace(/\.(md|mdx)$/, '') || artifact.id
 
   const w = localSize?.w ?? (artifact.w > 0 ? artifact.w : CARD_W)
-  const h = localSize?.h ?? (artifact.h > 0 ? artifact.h : undefined)
+  const h = localSize?.h ?? (artifact.h > 0 ? artifact.h : 600)
+
+  // Comments state
+  const [openComments, setOpenComments] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [pendingUserText, setPendingUserText] = useState('')
+  const handleGenerateRef = useRef<() => Promise<void>>(async () => {})
+
+  // Proposal state (confirm-before-apply)
+  const [proposal, setProposal] = useState<{ before: string; after: string; source: string; diff: { type: string; content: string }[] } | null>(null)
+  const [proposalStatus, setProposalStatus] = useState<'idle' | 'generating' | 'ready' | 'applying'>('idle')
+  const [sotWarning, setSotWarning] = useState(false)
+
+  const allComments = threads.flatMap(t => t.comments)
+  const commentCount = allComments.length
+
+  const handleCommentKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleGenerateRef.current()
+    }
+  }, [])
+
+  const commentListRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll comment list on new comments
+  useEffect(() => {
+    if (openComments && commentListRef.current) {
+      commentListRef.current.scrollTop = commentListRef.current.scrollHeight
+    }
+  }, [openComments, commentCount])
+
+  // ── Per-artifact AI agent ────────────────────────────────────────────────
+  const [aiStatus, setAiStatus] = useState<'idle' | 'thinking' | 'streaming'>('idle')
+  const [aiResponse, setAiResponse] = useState('')
+  const aiMsgIdRef = useRef<string | null>(null)
+  const tokenBufRef = useRef('')
+  const aiRafRef = useRef<number | null>(null)
+
+  // Listen for artifact-scoped AI events on the shared WebSocket
+  useEffect(() => {
+    const wsInstance = ws.current
+    if (!wsInstance) return
+
+    const handler = (e: MessageEvent) => {
+      try {
+        const event = JSON.parse(e.data as string)
+        if (event.artifactId !== artifact.id) return
+
+        if (event.type === 'artifact_ai_start') {
+          setAiStatus('streaming')
+          setAiResponse('')
+          tokenBufRef.current = ''
+          aiMsgIdRef.current = event.msgId
+        }
+        if (event.type === 'artifact_token' && event.msgId === aiMsgIdRef.current) {
+          tokenBufRef.current += event.token
+          if (aiRafRef.current === null) {
+            aiRafRef.current = requestAnimationFrame(() => {
+              aiRafRef.current = null
+              setAiResponse(tokenBufRef.current)
+            })
+          }
+        }
+        if (event.type === 'artifact_ai_done') {
+          if (aiRafRef.current !== null) {
+            cancelAnimationFrame(aiRafRef.current)
+            aiRafRef.current = null
+          }
+          tokenBufRef.current = ''
+          aiMsgIdRef.current = null
+          setAiStatus('idle')
+          setAiResponse('')
+          setPendingUserText('')
+          onRefresh()
+          // R2: signal that artifact source file may have changed, triggering re-fetch
+          // Small delay to allow the agent to finish writing the file before we re-fetch
+          setTimeout(() => {
+            fetch(`/__prev/board/${boardId}/artifact/${artifact.id}/refresh`, { method: 'POST' }).catch(() => {})
+          }, 500)
+        }
+        if (event.type === 'artifact_ai_error') {
+          if (aiRafRef.current !== null) {
+            cancelAnimationFrame(aiRafRef.current)
+            aiRafRef.current = null
+          }
+          tokenBufRef.current = ''
+          aiMsgIdRef.current = null
+          setAiStatus('idle')
+          setAiResponse('')
+          setPendingUserText('')
+        }
+        if (event.type === 'artifact_proposal') {
+          setProposal({ before: event.before, after: event.after, source: event.source, diff: event.diff })
+          setProposalStatus('ready')
+        }
+        if (event.type === 'artifact_proposal_applied') {
+          setProposal(null)
+          setProposalStatus('idle')
+        }
+      } catch { /* ignore */ }
+    }
+
+    wsInstance.addEventListener('message', handler)
+    return () => {
+      wsInstance.removeEventListener('message', handler)
+      if (aiRafRef.current !== null) {
+        cancelAnimationFrame(aiRafRef.current)
+        aiRafRef.current = null
+      }
+    }
+  }, [wsVersion, artifact.id, onRefresh])
+
+  // Auto-scroll on AI streaming updates
+  useEffect(() => {
+    if (openComments && commentListRef.current && aiStatus !== 'idle') {
+      commentListRef.current.scrollTop = commentListRef.current.scrollHeight
+    }
+  }, [openComments, aiStatus, aiResponse])
+
+  const handleGenerate = useCallback(async () => {
+    const text = commentText.trim()
+    if (!text || aiStatus !== 'idle') return
+    setAiStatus('thinking')
+    setPendingUserText(text)
+    setCommentText('')
+    try {
+      await fetch(`/__prev/board/${boardId}/artifact/${artifact.id}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+    } catch {
+      setAiStatus('idle')
+      setPendingUserText('')
+    }
+  }, [commentText, aiStatus, boardId, artifact.id])
+
+  handleGenerateRef.current = handleGenerate
+
+  const handleGenerateProposal = useCallback(async () => {
+    if (proposalStatus !== 'idle' && proposalStatus !== 'ready') return
+    setProposalStatus('generating')
+    setProposal(null)
+    try {
+      const res = await fetch(`/__prev/board/${boardId}/artifact/${artifact.id}/generate-proposal`, { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (data.sotConfigured === false) setSotWarning(true)
+        setProposalStatus('idle')
+      }
+    } catch { setProposalStatus('idle') }
+  }, [proposalStatus, boardId, artifact.id])
+
+  const handleApplyProposal = useCallback(async () => {
+    if (!proposal || proposalStatus !== 'ready') return
+    setProposalStatus('applying')
+    try {
+      await fetch(`/__prev/board/${boardId}/artifact/${artifact.id}/apply-proposal`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ after: proposal.after }),
+      })
+    } catch { setProposalStatus('ready') }
+  }, [proposal, proposalStatus, boardId, artifact.id])
+
+  const handleDiscardProposal = useCallback(() => {
+    setProposal(null)
+    setProposalStatus('idle')
+  }, [])
 
   return (
     <div
@@ -221,6 +534,14 @@ const ArtifactCard = React.memo(function ArtifactCard({
           {TYPE_LABEL[displayType] ?? artifact.type}
         </span>
         <button
+          className={`artifact-card-comment-btn${openComments ? ' active' : ''}`}
+          onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setOpenComments(v => !v) }}
+          title="Comments"
+        >
+          {'\ud83d\udcac'}
+          {commentCount > 0 && <span className="artifact-card-comment-btn-count">{commentCount}</span>}
+        </button>
+        <button
           className="artifact-card-remove"
           onMouseDown={e => e.stopPropagation()}
           onClick={() => onRemove(artifact.id)}
@@ -228,18 +549,139 @@ const ArtifactCard = React.memo(function ArtifactCard({
         >{'\u00d7'}</button>
       </div>
 
+      {/* Comments popup — portal overlay */}
+      <ArtifactCommentsPopup open={openComments} onClose={() => setOpenComments(false)}>
+        <div className="artifact-card-comments-list" ref={commentListRef}>
+          {sotWarning && (
+            <div className="artifact-sot-warning">
+              SOT repo not configured. Agent can only chat, cannot modify files.
+            </div>
+          )}
+          {allComments.length === 0 && !pendingUserText && aiStatus === 'idle' && (
+            <div className="artifact-card-comments-empty">No comments yet</div>
+          )}
+          {allComments.map(c => (
+            <div key={c.id} className={`artifact-card-comment-msg${c.author === 'ai' ? ' artifact-card-comment-ai' : ''}`}>
+              <span className="artifact-card-comment-author">{c.author}</span>
+              <span className="artifact-card-comment-text">
+                {c.author === 'ai' ? <MarkdownContent text={c.text} /> : c.text}
+              </span>
+              <span className="artifact-card-comment-ts">
+                {new Date(c.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ))}
+          {pendingUserText && (
+            <div className="artifact-card-comment-msg">
+              <span className="artifact-card-comment-author">user</span>
+              <span className="artifact-card-comment-text">{pendingUserText}</span>
+            </div>
+          )}
+          {aiStatus !== 'idle' && (
+            <>
+              {!aiResponse && (
+                <div className="artifact-ai-status-bar">
+                  <div className="artifact-ai-status-dots">
+                    <span /><span /><span />
+                  </div>
+                  <span className="artifact-ai-status-label">
+                    {aiStatus === 'thinking' ? 'AI is thinking...' : 'AI is responding...'}
+                  </span>
+                </div>
+              )}
+              <div className="artifact-card-comment-msg artifact-card-comment-ai">
+                <span className="artifact-card-comment-author">AI</span>
+                <span className="artifact-card-comment-text">
+                  {aiResponse
+                    ? <MarkdownContent text={aiResponse} streaming />
+                    : <div className="artifact-ai-typing">
+                        <span /><span /><span />
+                      </div>
+                }
+                </span>
+              </div>
+            </>
+          )}
+          {aiStatus === 'idle' && allComments.length > 0 && proposalStatus === 'idle' && !proposal && (
+            <button
+              className="artifact-proposal-generate-btn"
+              onClick={e => { e.stopPropagation(); handleGenerateProposal() }}
+              onMouseDown={e => e.stopPropagation()}
+            >
+              {'\u2728'} Generate Proposal
+            </button>
+          )}
+          {proposalStatus === 'generating' && (
+            <div className="artifact-proposal-generating">
+              <div className="artifact-ai-status-dots"><span /><span /><span /></div>
+              <span>Generating proposal...</span>
+            </div>
+          )}
+          {proposal && (
+            <div className="artifact-proposal-panel" onClick={e => e.stopPropagation()}>
+              <div className="artifact-proposal-header">
+                <span>Proposed changes for <code>{proposal.source}</code></span>
+              </div>
+              <div className="artifact-diff">
+                {proposal.diff.map((chunk, i) => (
+                  <div key={i} className={`artifact-diff-line artifact-diff-${chunk.type}`}>
+                    <span className="artifact-diff-marker">
+                      {chunk.type === 'add' ? '+' : chunk.type === 'remove' ? '\u2212' : ' '}
+                    </span>
+                    <span className="artifact-diff-content">{chunk.content || '\u00a0'}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="artifact-proposal-actions">
+                <button className="artifact-proposal-apply" onClick={e => { e.stopPropagation(); handleApplyProposal() }} disabled={proposalStatus === 'applying'} onMouseDown={e => e.stopPropagation()}>
+                  {proposalStatus === 'applying' ? 'Applying...' : '\u2713 Apply'}
+                </button>
+                <button className="artifact-proposal-discard" onClick={e => { e.stopPropagation(); handleDiscardProposal() }} disabled={proposalStatus === 'applying'} onMouseDown={e => e.stopPropagation()}>
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="artifact-card-comment-input">
+          <textarea
+            placeholder="Ask about this artifact..."
+            value={commentText}
+            onChange={e => {
+              setCommentText(e.target.value)
+              const ta = e.target
+              ta.style.height = 'auto'
+              ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'
+            }}
+            onKeyDown={handleCommentKeyDown}
+            disabled={aiStatus !== 'idle'}
+            onMouseDown={e => e.stopPropagation()}
+            rows={1}
+          />
+          <button
+            className="artifact-ai-generate-btn"
+            onClick={e => { e.stopPropagation(); handleGenerate() }}
+            disabled={!commentText.trim() || aiStatus !== 'idle'}
+            title="Send & generate AI response"
+            onMouseDown={e => e.stopPropagation()}
+          >
+            {aiStatus === 'thinking' ? '...' : '\u2728'}
+          </button>
+        </div>
+      </ArtifactCommentsPopup>
+
       {/* Content */}
       <div
         className="artifact-card-content"
         style={{
           pointerEvents: zoom > 0.5 ? 'auto' : 'none',
-          ...(h ? { flex: 1, overflowY: 'auto', minHeight: 0 } : {}),
         }}
       >
-        {(artifact.type === 'c3-doc' || artifact.type === 'ref') && <DocRenderer src={artifact.source} />}
-        {artifact.type === 'flow' && <FlowRenderer src={artifact.source} />}
+        {(artifact.type === 'c3-doc' || artifact.type === 'ref') && <DocRenderer src={artifact.source} refreshKey={globalRefreshKey} />}
+        {artifact.type === 'flow' && <FlowRenderer src={artifact.source} refreshKey={globalRefreshKey} />}
         {artifact.type === 'screen' && <ScreenRenderer src={artifact.source} fillHeight={!!h} />}
         {artifact.type === 'a2ui' && <A2UIRenderer src={artifact.source} fillHeight={!!h} />}
+        {artifact.type === 'json-screen' && <JsonScreenRenderer src={artifact.source} fillHeight={!!h} />}
         {artifact.type === 'preview' && (
           <iframe
             className={`artifact-iframe${h ? ' artifact-iframe--fill' : ''}`}
@@ -272,7 +714,7 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
 }) {
   const [files, setFiles] = useState<SotFile[]>(sotCache?.files ?? [])
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'all' | 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui'>('all')
+  const [tab, setTab] = useState<'all' | 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui' | 'json-screen'>('all')
 
   useEffect(() => {
     if (sotCache && Date.now() - sotCache.ts < SOT_CACHE_TTL) {
@@ -313,7 +755,7 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
       <input className="sot-browser-search" placeholder={'Search\u2026'} value={search} onChange={e => setSearch(e.target.value)} />
 
       <div className="sot-browser-tabs">
-        {(['all', 'a2ui', 'flow', 'screen', 'doc', 'ref'] as const).map(t => (
+        {(['all', 'json-screen', 'a2ui', 'flow', 'screen', 'doc', 'ref'] as const).map(t => (
           <button key={t} className={`sot-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
             {t === 'all' ? 'All' : TYPE_LABEL[t]}
           </button>
@@ -365,12 +807,25 @@ interface BoardCanvasProps {
   board: Board | null
   onAddArtifact: (a: Omit<Artifact, 'id'>) => void
   onBoardUpdate: React.Dispatch<React.SetStateAction<Board | null>>
+  ws: React.RefObject<WebSocket | null>
+  wsVersion: number
 }
 
-export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: BoardCanvasProps) {
+export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, wsVersion }: BoardCanvasProps) {
   const [zoom, setZoom] = useState(1)
   const [pan, setPan] = useState({ x: 40, y: 40 })
   const [browserCollapsed, setBrowserCollapsed] = useState(false)
+  // R1 fix: global refresh key — bumped when AI updates artifact source file, triggers re-fetch in DocRenderer/FlowRenderer
+  const [globalRefreshKey, setGlobalRefreshKey] = useState(0)
+
+  // Refresh board from server (used after adding comments)
+  const refreshBoard = useCallback(async () => {
+    const res = await fetch(`/__prev/board/${boardId}`)
+    if (res.ok) {
+      const fresh = await res.json()
+      onBoardUpdate(() => fresh)
+    }
+  }, [boardId, onBoardUpdate])
 
   // Drag state
   const dragging = useRef<{
@@ -390,6 +845,23 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
 
   // Pan state
   const panning = useRef<{ startMouse: { x: number; y: number }; startPan: { x: number; y: number } } | null>(null)
+
+  // R1 fix: listen for artifact_content_updated WebSocket event to refresh rendered content
+  // R2 fix: use wsVersion dep so listener re-attaches on reconnect
+  useEffect(() => {
+    const wsInstance = ws.current
+    if (!wsInstance) return
+    const handler = (e: MessageEvent) => {
+      try {
+        const event = JSON.parse(e.data as string)
+        if (event.type === 'artifact_content_updated') {
+          setGlobalRefreshKey(k => k + 1)
+        }
+      } catch { /* ignore */ }
+    }
+    wsInstance.addEventListener('message', handler)
+    return () => { wsInstance.removeEventListener('message', handler) }
+  }, [wsVersion])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -425,12 +897,31 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
     if (!el) return
 
     const onWheel = (e: WheelEvent) => {
+      // Don't intercept scroll events inside artifact cards or comments popup
+      if ((e.target as HTMLElement).closest('.artifact-card, .artifact-comments-popup')) return
+
+      const isPinchOrCtrlZoom = e.ctrlKey || e.metaKey
+      const isTrackpad = e.deltaMode === 0
+
+      // Trackpad 2-finger swipe (no ctrl/meta) → PAN (inverted: Figma behavior)
+      if (isTrackpad && !isPinchOrCtrlZoom) {
+        e.preventDefault()
+        setPan(p => ({
+          x: p.x - e.deltaX,
+          y: p.y - e.deltaY,
+        }))
+        return
+      }
+
+      // Mouse wheel scroll (deltaMode === 1) or ctrl+scroll/pinch-to-zoom → ZOOM
       e.preventDefault()
       const rect = el.getBoundingClientRect()
       const mouseX = e.clientX - rect.left
       const mouseY = e.clientY - rect.top
 
-      const delta = e.deltaY < 0 ? 0.12 : -0.12
+      // Pinch-to-zoom uses finer increments from trackpad
+      const magnitude = isTrackpad && isPinchOrCtrlZoom ? Math.abs(e.deltaY) * 0.005 : 0.12
+      const delta = e.deltaY < 0 ? magnitude : -magnitude
       setZoom(prev => {
         const next = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, prev + delta))
         // Zoom toward cursor: adjust pan so the point under cursor stays fixed
@@ -465,8 +956,8 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
       if (dragging.current) {
         const dx = (e.clientX - dragging.current.startMouse.x) / zoom
         const dy = (e.clientY - dragging.current.startMouse.y) / zoom
-        const newX = Math.max(0, dragging.current.startPos.x + dx)
-        const newY = Math.max(0, dragging.current.startPos.y + dy)
+        const newX = dragging.current.startPos.x + dx
+        const newY = dragging.current.startPos.y + dy
         dragging.current.current = { x: newX, y: newY }
         scheduleRaf()
         return
@@ -642,13 +1133,15 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
 
   const handleAddFile = (file: SotFile) => {
     const index = board?.artifacts.length ?? 0
-    // F3 fix: use instance-scoped cursors
-    const pos = autoPosition(index, colCursorsRef.current)
+    // Center first artifact, grid-position subsequent ones
+    const pos = index === 0
+      ? centerStartPosition(window.innerWidth, window.innerHeight, 0)
+      : autoPosition(index, colCursorsRef.current)
     const typeMap: Record<string, Artifact['type']> = {
-      flow: 'flow', screen: 'screen', doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui',
+      flow: 'flow', screen: 'screen', doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui', 'json-screen': 'json-screen',
     }
-    // A2UI screens get a taller default h so they show content immediately
-    const defaultH = file.type === 'a2ui' ? 520 : 0
+    // A2UI and json-screen get a taller default h so they show content immediately
+    const defaultH = (file.type === 'a2ui' || file.type === 'json-screen') ? 520 : 0
     onAddArtifact({ type: typeMap[file.type] ?? 'c3-doc', source: file.path, title: file.title, ...pos, w: CARD_W, h: defaultH })
   }
 
@@ -735,6 +1228,8 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
           className="board-canvas-stage"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}
         >
+          {/* Grid dots background */}
+
           {artifacts.length === 0 && (
             <div className="canvas-empty-hint" style={{ position: 'absolute', left: 120, top: 80, pointerEvents: 'none' }}>
               <span style={{ fontSize: 32, opacity: 0.15 }}>{'\u25fb'}</span>
@@ -753,6 +1248,12 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate }: Bo
                 onDragStart={handleDragStart}
                 onResizeStart={handleResizeStart}
                 onRemove={handleRemove}
+                boardId={boardId}
+                threads={(board?.threads ?? []).filter(t => t.artifact_id === artifact.id)}
+                onRefresh={refreshBoard}
+                ws={ws}
+                wsVersion={wsVersion}
+                globalRefreshKey={globalRefreshKey}
               />
             )
           })}

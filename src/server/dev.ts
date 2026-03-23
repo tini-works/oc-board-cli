@@ -3,7 +3,7 @@
 // so we pre-build entry.tsx with Bun.build() (which supports explicit plugins)
 // and serve the result from the fetch handler with SSE live reload.
 import path from 'path'
-import { existsSync, readFileSync, statSync } from 'fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { virtualModulesPlugin } from './plugins/virtual-modules'
 import { mdxPlugin } from './plugins/mdx'
@@ -16,9 +16,11 @@ import { createTokensHandler } from './routes/tokens'
 import { handleOgImageRequest } from './routes/og-image'
 import { createApprovalHandler } from './routes/approval'
 import { createBoardHandler, registerBoardWsClient, broadcast } from './routes/board'
+import { readBoard, boardsDir } from './board-utils'
 import { createSotHandler } from './routes/sot'
+import { createScreenRenderHandler } from './routes/screen-render'
 import { BoardQueueProcessor } from './board-queue'
-import { loadConfig, updateOrder } from '../config'
+import { loadConfig, updateOrder, jsonRenderConfig } from '../config'
 import type { PrevConfig } from '../config'
 
 // Find CLI root by locating package.json
@@ -503,6 +505,40 @@ export async function startDevServer(options: DevServerOptions) {
   const queueProcessor = new BoardQueueProcessor(rootDir, broadcast)
   const boardHandler = createBoardHandler(rootDir, { onTaskEnqueued: (id) => queueProcessor.notifyPending(id) })
   const sotHandler = createSotHandler(rootDir)
+
+  // Auto-build json-render-v2-app if source exists but out/ is missing or stale
+  if (jsonRenderConfig.baseDir) {
+    const v2AppDir = jsonRenderConfig.v2AppDir || path.join(jsonRenderConfig.baseDir, 'json-render-v2-app')
+    const v2OutDir = path.join(v2AppDir, 'out')
+    const v2PkgJson = path.join(v2AppDir, 'package.json')
+    const v2NodeMods = path.join(v2AppDir, 'node_modules')
+    if (existsSync(v2PkgJson)) {
+      const outStale = !existsSync(v2OutDir) || (
+        statSync(path.join(v2AppDir, 'src')).mtimeMs > statSync(v2OutDir).mtimeMs
+      )
+      if (outStale) {
+        console.log('  Building json-render-v2-app...')
+        try {
+          if (!existsSync(v2NodeMods)) {
+            const install = Bun.spawnSync(['npm', 'install'], { cwd: v2AppDir, stdout: 'pipe', stderr: 'pipe' })
+            if (install.exitCode !== 0) console.error('  npm install failed:', install.stderr.toString())
+          }
+          const build = Bun.spawnSync(['npm', 'run', 'build'], { cwd: v2AppDir, stdout: 'pipe', stderr: 'pipe' })
+          if (build.exitCode === 0) {
+            console.log('  ✓ json-render-v2-app built')
+          } else {
+            console.error('  json-render-v2-app build failed:', build.stderr.toString().slice(0, 500))
+          }
+        } catch (e) {
+          console.error('  json-render-v2-app auto-build error:', e)
+        }
+      }
+    }
+  }
+
+  const screenRenderHandler = jsonRenderConfig.baseDir
+    ? createScreenRenderHandler(jsonRenderConfig.baseDir, jsonRenderConfig.v2AppDir || undefined)
+    : null
   queueProcessor.start()
   const previewRuntimePath = path.join(srcRoot, 'preview-runtime/fast-template.html')
 
@@ -594,6 +630,12 @@ export async function startDevServer(options: DevServerOptions) {
       // SOT file listing + content
       const sotResponse = await sotHandler(req)
       if (sotResponse) return sotResponse
+
+      // JSON render screen preview + static assets
+      if (screenRenderHandler) {
+        const screenRenderResponse = await screenRenderHandler(req)
+        if (screenRenderResponse) return screenRenderResponse
+      }
 
       // A2UI bundle served from OpenClaw
       if (pathname === '/__prev/a2ui-bundle.js') {
@@ -733,12 +775,48 @@ export async function startDevServer(options: DevServerOptions) {
     }))
   }
 
+  // R2: Watch SOT source files for changes — broadcast artifact_content_updated
+  // so artifact cards re-fetch their content when an external agent modifies files
+  let sotRefreshTimer: Timer | null = null
+  const SOT_EXTS = /\.(md|mdx|jsonl)$/
+  const SOT_SKIP_DIRS = new Set(['.prev-boards', 'node_modules', '.git', 'previews'])
+
+  watchers.push(watch(rootDir, { recursive: true }, (_, filename) => {
+    if (!filename || !SOT_EXTS.test(filename)) return
+    // Skip changes in non-SOT directories
+    const firstSegment = filename.split('/')[0]
+    if (firstSegment && SOT_SKIP_DIRS.has(firstSegment)) return
+
+    // Debounce and broadcast
+    if (sotRefreshTimer) clearTimeout(sotRefreshTimer)
+    sotRefreshTimer = setTimeout(() => {
+      const changedPath = filename // relative to rootDir
+      const bDir = boardsDir(rootDir)
+      if (!existsSync(bDir)) return
+      try {
+        for (const entry of readdirSync(bDir)) {
+          if (!entry.endsWith('.json')) continue
+          const boardId = entry.slice(0, -5)
+          const board = readBoard(rootDir, boardId)
+          if (!board) continue
+          const matching = board.artifacts.filter(a => a.source === changedPath)
+          if (matching.length > 0) {
+            for (const a of matching) {
+              broadcast(boardId, { type: 'artifact_content_updated', artifactId: a.id, source: a.source })
+            }
+          }
+        }
+      } catch { /* ignore watcher errors */ }
+    }, 300)
+  }))
+
   return {
     server,
     port: server.port,
     url: `http://localhost:${server.port}/`,
     stop: () => {
       if (rebuildTimer) clearTimeout(rebuildTimer)
+      if (sotRefreshTimer) clearTimeout(sotRefreshTimer)
       watchers.forEach(w => w.close())
       queueProcessor.stop()
       server.stop()
