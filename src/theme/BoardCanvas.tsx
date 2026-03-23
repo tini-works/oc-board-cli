@@ -18,8 +18,8 @@ function MarkdownContent({ text, streaming }: { text: string; streaming?: boolea
   )
 }
 
-const TYPE_ICON: Record<string, string> = { flow: '\u21e2', screen: '\u25a3', doc: '\ud83d\udcc4', ref: '\ud83d\udcce', preview: '\u2b21', a2ui: '\u2726' }
-const TYPE_LABEL: Record<string, string> = { flow: 'Flow', screen: 'Screen', doc: 'Doc', ref: 'Ref', preview: 'Preview', a2ui: 'A2UI' }
+const TYPE_ICON: Record<string, string> = { flow: '\u21e2', screen: '\u25a3', doc: '\ud83d\udcc4', ref: '\ud83d\udcce', preview: '\u2b21', a2ui: '\u2726', 'json-screen': '\u25a3' }
+const TYPE_LABEL: Record<string, string> = { flow: 'Flow', screen: 'Screen', doc: 'Doc', ref: 'Ref', preview: 'Preview', a2ui: 'A2UI', 'json-screen': 'Screen' }
 
 const CARD_W = 380
 const GRID_COLS = 3
@@ -191,6 +191,21 @@ function A2UIRenderer({ src, fillHeight }: { src: string; fillHeight: boolean })
       title={src}
       loading="lazy"
       allow="same-origin"
+    />
+  )
+}
+
+// ── JSON screen renderer — renders json-render-ui screen via iframe ───────────
+function JsonScreenRenderer({ src, fillHeight }: { src: string; fillHeight: boolean }) {
+  // src is "json-screen:login" — extract the screen key
+  const screenKey = src.replace(/^json-screen:/, '')
+  const rendererUrl = `/__prev/screen-render?screen=${encodeURIComponent(screenKey)}`
+  return (
+    <iframe
+      className={`artifact-iframe artifact-iframe-a2ui${fillHeight ? ' artifact-iframe--fill' : ''}`}
+      src={rendererUrl}
+      title={`Screen: ${screenKey}`}
+      loading="lazy"
     />
   )
 }
@@ -666,6 +681,7 @@ const ArtifactCard = React.memo(function ArtifactCard({
         {artifact.type === 'flow' && <FlowRenderer src={artifact.source} refreshKey={globalRefreshKey} />}
         {artifact.type === 'screen' && <ScreenRenderer src={artifact.source} fillHeight={!!h} />}
         {artifact.type === 'a2ui' && <A2UIRenderer src={artifact.source} fillHeight={!!h} />}
+        {artifact.type === 'json-screen' && <JsonScreenRenderer src={artifact.source} fillHeight={!!h} />}
         {artifact.type === 'preview' && (
           <iframe
             className={`artifact-iframe${h ? ' artifact-iframe--fill' : ''}`}
@@ -698,7 +714,7 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
 }) {
   const [files, setFiles] = useState<SotFile[]>(sotCache?.files ?? [])
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'all' | 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui'>('all')
+  const [tab, setTab] = useState<'all' | 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui' | 'json-screen'>('all')
 
   useEffect(() => {
     if (sotCache && Date.now() - sotCache.ts < SOT_CACHE_TTL) {
@@ -739,7 +755,7 @@ function SotBrowser({ onAdd, collapsed, onToggle }: {
       <input className="sot-browser-search" placeholder={'Search\u2026'} value={search} onChange={e => setSearch(e.target.value)} />
 
       <div className="sot-browser-tabs">
-        {(['all', 'a2ui', 'flow', 'screen', 'doc', 'ref'] as const).map(t => (
+        {(['all', 'json-screen', 'a2ui', 'flow', 'screen', 'doc', 'ref'] as const).map(t => (
           <button key={t} className={`sot-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
             {t === 'all' ? 'All' : TYPE_LABEL[t]}
           </button>
@@ -1122,10 +1138,10 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
       ? centerStartPosition(window.innerWidth, window.innerHeight, 0)
       : autoPosition(index, colCursorsRef.current)
     const typeMap: Record<string, Artifact['type']> = {
-      flow: 'flow', screen: 'screen', doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui',
+      flow: 'flow', screen: 'screen', doc: 'c3-doc', ref: 'c3-doc', a2ui: 'a2ui', 'json-screen': 'json-screen',
     }
-    // A2UI screens get a taller default h so they show content immediately
-    const defaultH = file.type === 'a2ui' ? 520 : 0
+    // A2UI and json-screen get a taller default h so they show content immediately
+    const defaultH = (file.type === 'a2ui' || file.type === 'json-screen') ? 520 : 0
     onAddArtifact({ type: typeMap[file.type] ?? 'c3-doc', source: file.path, title: file.title, ...pos, w: CARD_W, h: defaultH })
   }
 
