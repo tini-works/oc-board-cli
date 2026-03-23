@@ -44,8 +44,8 @@ function autoPosition(index: number, cursors: number[]) {
 // Calculate center position for the first artifact placement, clamped to board bounds
 function centerStartPosition(viewportW: number, viewportH: number, numArtifacts: number): { x: number; y: number } {
   const totalWidth = GRID_COLS * CARD_W + (GRID_COLS - 1) * GRID_COL_GAP
-  const offsetX = Math.max(24, Math.min(BOARD_W - CARD_W, (viewportW - totalWidth) / 2))
-  const offsetY = Math.max(24, Math.min(BOARD_H - 400, (viewportH - 400) / 2))
+  const offsetX = Math.max(24, (viewportW - totalWidth) / 2)
+  const offsetY = Math.max(24, (viewportH - 400) / 2)
   return { x: offsetX, y: offsetY }
 }
 
@@ -847,8 +847,8 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
       if (dragging.current) {
         const dx = (e.clientX - dragging.current.startMouse.x) / zoom
         const dy = (e.clientY - dragging.current.startMouse.y) / zoom
-        const newX = Math.max(0, Math.min(BOARD_W - CARD_W, dragging.current.startPos.x + dx))
-        const newY = Math.max(0, Math.min(BOARD_H - CARD_MIN_H, dragging.current.startPos.y + dy))
+        const newX = dragging.current.startPos.x + dx
+        const newY = dragging.current.startPos.y + dy
         dragging.current.current = { x: newX, y: newY }
         scheduleRaf()
         return
@@ -1119,8 +1119,7 @@ export function BoardCanvas({ boardId, board, onAddArtifact, onBoardUpdate, ws, 
           className="board-canvas-stage"
           style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}
         >
-          {/* Board boundary — scales with zoom since it's inside the stage */}
-          <div className="board-boundary" style={{ position: 'absolute', left: 0, top: 0, width: BOARD_W, height: BOARD_H }} />
+          {/* Grid dots background */}
 
           {artifacts.length === 0 && (
             <div className="canvas-empty-hint" style={{ position: 'absolute', left: 120, top: 80, pointerEvents: 'none' }}>
