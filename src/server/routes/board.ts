@@ -14,7 +14,7 @@ export interface ChatMessage {
   thinking?: string
 }
 
-export type ArtifactType = 'preview' | 'c3-doc' | 'flow' | 'screen' | 'a2ui' | 'ref'
+export type ArtifactType = 'preview' | 'c3-doc' | 'flow' | 'screen' | 'a2ui' | 'ref' | 'json-screen'
 
 export interface Artifact {
   id: string

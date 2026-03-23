@@ -1,12 +1,13 @@
 // sot.ts — SOT file listing and content serving
 import path from 'path'
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs'
+import { jsonRenderConfig } from '../../config'
 
 export interface SotFile {
   path: string       // relative to rootDir, e.g. "flows/login.md"
   title: string      // derived from frontmatter or filename
-  type: 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui'
-  ext: 'md' | 'mdx' | 'jsonl'
+  type: 'flow' | 'screen' | 'doc' | 'ref' | 'a2ui' | 'json-screen'
+  ext: 'md' | 'mdx' | 'jsonl' | 'json'
 }
 
 const SKIP_DIRS = new Set(['.prev-boards', 'node_modules', '.git', 'previews'])
@@ -94,7 +95,27 @@ export function createSotHandler(rootDir: string) {
     if (pathname === '/__prev/sot/list' && req.method === 'GET') {
       const files: SotFile[] = []
       if (existsSync(rootDir)) walk(rootDir, rootDir, files)
-      const order: Record<string, number> = { a2ui: 0, flow: 1, screen: 2, ref: 3, doc: 4 }
+
+      // Append json-render screens if configured
+      if (jsonRenderConfig.baseDir) {
+        const specsDir = path.resolve(jsonRenderConfig.baseDir, 'json-render', 'specs')
+        if (existsSync(specsDir)) {
+          for (const file of readdirSync(specsDir)) {
+            if (file.endsWith('.json')) {
+              const key = file.replace('.json', '')
+              const label = key.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+              files.push({
+                path: `json-screen:${key}`,
+                title: label,
+                type: 'json-screen',
+                ext: 'json',
+              })
+            }
+          }
+        }
+      }
+
+      const order: Record<string, number> = { 'json-screen': 0, a2ui: 1, flow: 2, screen: 3, ref: 4, doc: 5 }
       files.sort((a, b) => (order[a.type] ?? 9) - (order[b.type] ?? 9) || a.path.localeCompare(b.path))
       return Response.json(files)
     }
