@@ -17,10 +17,7 @@ export const gatewayConfig = {
   maxThinkingTokens: process.env.MAX_THINKING_TOKENS ? parseInt(process.env.MAX_THINKING_TOKENS, 10) : 0,
 }
 
-/** JSON render directory — contains json-render-ui/, json-render/, json-render-v2-app/ */
+/** JSON render v2 — path to json-render-adapter/ output directory */
 export const jsonRenderConfig = {
-  /** Parent dir containing json-render-ui/, json-render/, json-render-v2-app/ */
-  baseDir: expandHome(process.env.PREV_JSON_RENDER_DIR || ''),
-  /** Direct path to json-render-v2-app/ — overrides baseDir/json-render-v2-app */
-  v2AppDir: expandHome(process.env.PREV_JSON_RENDER_V2_APP_DIR || ''),
+  dir: expandHome(process.env.PREV_JSON_RENDER_DIR || ''),
 }
