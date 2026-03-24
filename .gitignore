@@ -8,3 +8,4 @@ dist/
 prev-cli-*.tgz
 .prev-debug
 .prev-boards/
+.json-render-entry.tsx

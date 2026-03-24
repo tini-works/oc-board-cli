@@ -506,38 +506,10 @@ export async function startDevServer(options: DevServerOptions) {
   const boardHandler = createBoardHandler(rootDir, { onTaskEnqueued: (id) => queueProcessor.notifyPending(id) })
   const sotHandler = createSotHandler(rootDir)
 
-  // Auto-build json-render-v2-app if source exists but out/ is missing or stale
-  if (jsonRenderConfig.baseDir) {
-    const v2AppDir = jsonRenderConfig.v2AppDir || path.join(jsonRenderConfig.baseDir, 'json-render-v2-app')
-    const v2OutDir = path.join(v2AppDir, 'out')
-    const v2PkgJson = path.join(v2AppDir, 'package.json')
-    const v2NodeMods = path.join(v2AppDir, 'node_modules')
-    if (existsSync(v2PkgJson)) {
-      const outStale = !existsSync(v2OutDir) || (
-        statSync(path.join(v2AppDir, 'src')).mtimeMs > statSync(v2OutDir).mtimeMs
-      )
-      if (outStale) {
-        console.log('  Building json-render-v2-app...')
-        try {
-          if (!existsSync(v2NodeMods)) {
-            const install = Bun.spawnSync(['npm', 'install'], { cwd: v2AppDir, stdout: 'pipe', stderr: 'pipe' })
-            if (install.exitCode !== 0) console.error('  npm install failed:', install.stderr.toString())
-          }
-          const build = Bun.spawnSync(['npm', 'run', 'build'], { cwd: v2AppDir, stdout: 'pipe', stderr: 'pipe' })
-          if (build.exitCode === 0) {
-            console.log('  ✓ json-render-v2-app built')
-          } else {
-            console.error('  json-render-v2-app build failed:', build.stderr.toString().slice(0, 500))
-          }
-        } catch (e) {
-          console.error('  json-render-v2-app auto-build error:', e)
-        }
-      }
-    }
-  }
-
-  const screenRenderHandler = jsonRenderConfig.baseDir
-    ? createScreenRenderHandler(jsonRenderConfig.baseDir, jsonRenderConfig.v2AppDir || undefined)
+  // json-render-adapter screen preview — bundles lib files on-the-fly via Bun.build()
+  // Handler watches for changes and auto-rebuilds, even if dir doesn't exist yet at startup
+  const screenRenderHandler = jsonRenderConfig.dir
+    ? createScreenRenderHandler(jsonRenderConfig.dir)
     : null
   queueProcessor.start()
   const previewRuntimePath = path.join(srcRoot, 'preview-runtime/fast-template.html')

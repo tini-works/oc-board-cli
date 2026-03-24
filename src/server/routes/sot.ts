@@ -97,8 +97,8 @@ export function createSotHandler(rootDir: string) {
       if (existsSync(rootDir)) walk(rootDir, rootDir, files)
 
       // Append json-render screens if configured
-      if (jsonRenderConfig.baseDir) {
-        const specsDir = path.resolve(jsonRenderConfig.baseDir, 'json-render', 'specs')
+      const specsDir = jsonRenderConfig.dir ? path.resolve(jsonRenderConfig.dir, 'specs') : ''
+      if (specsDir) {
         if (existsSync(specsDir)) {
           for (const file of readdirSync(specsDir)) {
             if (file.endsWith('.json')) {
